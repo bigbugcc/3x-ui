@@ -7,7 +7,7 @@ class AllSetting {
         this.webCertFile = "";
         this.webKeyFile = "";
         this.webBasePath = "/";
-        this.sessionMaxAge = 0;
+        this.sessionMaxAge = 60;
         this.pageSize = 50;
         this.expireDiff = 0;
         this.trafficDiff = 0;
@@ -16,6 +16,7 @@ class AllSetting {
         this.tgBotEnable = false;
         this.tgBotToken = "";
         this.tgBotProxy = "";
+        this.tgBotAPIServer = "";
         this.tgBotChatId = "";
         this.tgRunTime = "@daily";
         this.tgBotBackup = false;
@@ -30,6 +31,8 @@ class AllSetting {
         this.subPath = "/sub/";
         this.subJsonPath = "/json/";
         this.subDomain = "";
+        this.externalTrafficInformEnable = false;
+        this.externalTrafficInformURI = "";
         this.subCertFile = "";
         this.subKeyFile = "";
         this.subUpdates = 12;
@@ -38,11 +41,11 @@ class AllSetting {
         this.subURI = "";
         this.subJsonURI = "";
         this.subJsonFragment = "";
-        this.subJsonNoise = "";
+        this.subJsonNoises = "";
         this.subJsonMux = "";
         this.subJsonRules = "";
 
-        this.timeLocation = "Asia/Tehran";
+        this.timeLocation = "Local";
 
         if (data == null) {
             return
