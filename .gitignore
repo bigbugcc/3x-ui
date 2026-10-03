@@ -1,13 +1,14 @@
 # Ignore editor and IDE settings
 .idea/
 .vscode/
+.cursor/
+.specify/
+.claude/
 .cache/
 .sync*
 
 # Ignore log files
 *.log
-access.log
-error.log
 
 # Ignore temporary files
 tmp/
@@ -16,24 +17,29 @@ tmp/
 # Ignore build and distribution directories
 backup/
 bin/
+x-ui/
 dist/
 release/
 node_modules/
 
 # Ignore compiled binaries
 main
-
-# Ignore script and executable files
-/release.sh
-/x-ui
+3x-ui
 
 # Ignore OS specific files
 .DS_Store
 Thumbs.db
 
-# Ignore Go specific files
+# Ignore Go build files
 *.exe
-*.exe~
+x-ui.db
+x-ui.db-shm
+x-ui.db-wal
+system_metrics.gob
+*.dump
 
 # Ignore Docker specific files
 docker-compose.override.yml
+
+# Ignore .env (Environment Variables) file
+.env
