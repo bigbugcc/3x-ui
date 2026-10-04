@@ -2559,6 +2559,60 @@ export const SCHEMAS: Record<string, unknown> = {
     ],
     "type": "object"
   },
+  "GeodataScheduleView": {
+    "properties": {
+      "applied": {
+        "type": "boolean"
+      },
+      "applyError": {
+        "type": "string"
+      },
+      "config": {
+        "$ref": "#/components/schemas/GeodataUpdateSchedule"
+      },
+      "nextRun": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "outboundTags": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "standardSources": {
+        "items": {
+          "$ref": "#/components/schemas/GeodataSource"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "applied",
+      "applyError",
+      "config",
+      "nextRun",
+      "outboundTags",
+      "standardSources"
+    ],
+    "type": "object"
+  },
+  "GeodataSource": {
+    "description": "GeodataSource identifies a file Xray downloads through its geodata configuration.",
+    "properties": {
+      "file": {
+        "type": "string"
+      },
+      "url": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "file",
+      "url"
+    ],
+    "type": "object"
+  },
   "GeodataTokenIssue": {
     "description": "GeodataTokenIssue reports a routing token the running core would reject,\nor would silently match nothing against.",
     "properties": {
@@ -2582,6 +2636,36 @@ export const SCHEMAS: Record<string, unknown> = {
     "required": [
       "reason",
       "token"
+    ],
+    "type": "object"
+  },
+  "GeodataUpdateSchedule": {
+    "properties": {
+      "assets": {
+        "items": {
+          "$ref": "#/components/schemas/GeodataSource"
+        },
+        "type": "array"
+      },
+      "cron": {
+        "type": "string"
+      },
+      "enabled": {
+        "type": "boolean"
+      },
+      "outbound": {
+        "type": "string"
+      },
+      "timezone": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "assets",
+      "cron",
+      "enabled",
+      "outbound",
+      "timezone"
     ],
     "type": "object"
   },
@@ -4748,6 +4832,83 @@ export const SCHEMAS: Record<string, unknown> = {
       "id",
       "password",
       "username"
+    ],
+    "type": "object"
+  },
+  "XrayRestartRun": {
+    "description": "XrayRestartRun records an actual attempt or a deliberate manual-stop skip.",
+    "properties": {
+      "durationMs": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "error": {
+        "type": "string"
+      },
+      "startedAt": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "status": {
+        "type": "string"
+      },
+      "trigger": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "durationMs",
+      "error",
+      "startedAt",
+      "status",
+      "trigger"
+    ],
+    "type": "object"
+  },
+  "XrayRestartSchedule": {
+    "description": "XrayRestartSchedule is one administrator-defined local-core restart plan.",
+    "properties": {
+      "cron": {
+        "type": "string"
+      },
+      "enabled": {
+        "type": "boolean"
+      },
+      "timezone": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "cron",
+      "enabled",
+      "timezone"
+    ],
+    "type": "object"
+  },
+  "XrayRestartScheduleView": {
+    "properties": {
+      "config": {
+        "$ref": "#/components/schemas/XrayRestartSchedule"
+      },
+      "history": {
+        "items": {
+          "$ref": "#/components/schemas/XrayRestartRun"
+        },
+        "type": "array"
+      },
+      "nextRun": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "running": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "config",
+      "history",
+      "nextRun",
+      "running"
     ],
     "type": "object"
   }

@@ -603,11 +603,33 @@ export interface GeoFile {
   size: number;
 }
 
+export interface GeodataScheduleView {
+  applied: boolean;
+  applyError: string;
+  config: GeodataUpdateSchedule;
+  nextRun: number;
+  outboundTags: string[];
+  standardSources: GeodataSource[];
+}
+
+export interface GeodataSource {
+  file: string;
+  url: string;
+}
+
 export interface GeodataTokenIssue {
   code?: string;
   file?: string;
   reason: string;
   token: string;
+}
+
+export interface GeodataUpdateSchedule {
+  assets: GeodataSource[];
+  cron: string;
+  enabled: boolean;
+  outbound: string;
+  timezone: string;
 }
 
 export interface HappLinkResult {
@@ -1088,5 +1110,26 @@ export interface User {
   id: number;
   password: string;
   username: string;
+}
+
+export interface XrayRestartRun {
+  durationMs: number;
+  error: string;
+  startedAt: number;
+  status: string;
+  trigger: string;
+}
+
+export interface XrayRestartSchedule {
+  cron: string;
+  enabled: boolean;
+  timezone: string;
+}
+
+export interface XrayRestartScheduleView {
+  config: XrayRestartSchedule;
+  history: XrayRestartRun[];
+  nextRun: number;
+  running: boolean;
 }
 

@@ -2412,6 +2412,65 @@ export const sections: readonly Section[] = [
       },
       {
         method: 'GET',
+        path: '/panel/api/xray/schedule/restart',
+        summary:
+          'Read the local Xray restart plan, next execution, running state and last 50 results.',
+        responseSchema: 'XrayRestartScheduleView',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/xray/schedule/restart',
+        summary: 'Save and immediately reschedule the local restart plan without restarting Xray.',
+        description:
+          'JSON body. Five-field cron or @every with a minimum interval of one minute; explicit IANA time zone. Plans default to disabled. Missed executions are not replayed.',
+        params: [
+          { name: 'enabled', in: 'body (json)', type: 'boolean' },
+          { name: 'cron', in: 'body (json)', type: 'string' },
+          { name: 'timezone', in: 'body (json)', type: 'string' },
+        ],
+        responseSchema: 'XrayRestartScheduleView',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/xray/schedule/restart/run',
+        summary:
+          'Run the restart task now and record its result; a manually stopped Xray stays stopped.',
+        description:
+          'Forces a process restart, including reconnecting built-in WARP, without rotating its IP. Rejects overlapping task runs. Does not restart external WARP services.',
+        responseSchema: 'XrayRestartRun',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/xray/schedule/geodata',
+        summary:
+          'Read the Geo update plan, next scheduled time, standard sources and download outbounds.',
+        description:
+          'Imports existing geodata configuration. Geo execution results remain in the Xray log.',
+        responseSchema: 'GeodataScheduleView',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/xray/schedule/geodata',
+        summary:
+          'Patch only the Geo update plan in the latest Xray template and apply it to a running core.',
+        description:
+          'JSON body. Five-field cron and explicit IANA time zone. Assets must use HTTPS and unique .dat filenames, and must exist before enabling. Changes restart a running core once; unchanged saves keep connections. A stopped core loads it on its next start. success means saved; applied and applyError describe application separately. Disabling retains the asset draft.',
+        params: [
+          { name: 'enabled', in: 'body (json)', type: 'boolean' },
+          { name: 'cron', in: 'body (json)', type: 'string' },
+          { name: 'timezone', in: 'body (json)', type: 'string' },
+          { name: 'outbound', in: 'body (json)', type: 'string', optional: true },
+          {
+            name: 'assets',
+            in: 'body (json)',
+            type: 'object[]',
+            desc: 'Array of {url, file} Geo assets.',
+          },
+        ],
+        responseSchema: 'GeodataScheduleView',
+      },
+      {
+        method: 'GET',
         path: '/panel/api/xray/geodata/files',
         summary:
           'List the geo databases (.dat files) in the Xray asset folder, with the layout detected from their contents, size, modification time and category count. A database that fails to parse is still listed, with the reason in "error".',

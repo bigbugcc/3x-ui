@@ -1407,6 +1407,33 @@ func (s *XrayService) TestRoute(req xray.RouteTestRequest) (*xray.RouteTestResul
 func (s *XrayService) RestartXray(isForce bool) error {
 	lock.Lock()
 	defer lock.Unlock()
+	return s.restartXrayLocked(isForce)
+}
+
+// RestartXrayScheduled checks manual-stop state under the lifecycle lock,
+// preventing a queued task from reviving a deliberately stopped core.
+func (s *XrayService) RestartXrayScheduled() (bool, error) {
+	lock.Lock()
+	defer lock.Unlock()
+	if isManuallyStopped.Load() {
+		return false, nil
+	}
+	return true, s.restartXrayLocked(true)
+}
+
+// RestartXrayIfRunning reconciles a running core; changed geodata requires a
+// process restart, while unchanged configuration leaves connections intact.
+func (s *XrayService) RestartXrayIfRunning() (bool, error) {
+	lock.Lock()
+	defer lock.Unlock()
+	process := currentXrayProcess()
+	if isManuallyStopped.Load() || process == nil || !process.IsRunning() {
+		return false, nil
+	}
+	return true, s.restartXrayLocked(false)
+}
+
+func (s *XrayService) restartXrayLocked(isForce bool) error {
 	logger.Debug("restart Xray, force:", isForce)
 	if !isForce && isManuallyStopped.Load() {
 		return nil

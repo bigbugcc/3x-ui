@@ -2585,6 +2585,60 @@
         ],
         "type": "object"
       },
+      "GeodataScheduleView": {
+        "properties": {
+          "applied": {
+            "type": "boolean"
+          },
+          "applyError": {
+            "type": "string"
+          },
+          "config": {
+            "$ref": "#/components/schemas/GeodataUpdateSchedule"
+          },
+          "nextRun": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "outboundTags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "standardSources": {
+            "items": {
+              "$ref": "#/components/schemas/GeodataSource"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "applied",
+          "applyError",
+          "config",
+          "nextRun",
+          "outboundTags",
+          "standardSources"
+        ],
+        "type": "object"
+      },
+      "GeodataSource": {
+        "description": "GeodataSource identifies a file Xray downloads through its geodata configuration.",
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "url"
+        ],
+        "type": "object"
+      },
       "GeodataTokenIssue": {
         "description": "GeodataTokenIssue reports a routing token the running core would reject,\nor would silently match nothing against.",
         "properties": {
@@ -2608,6 +2662,36 @@
         "required": [
           "reason",
           "token"
+        ],
+        "type": "object"
+      },
+      "GeodataUpdateSchedule": {
+        "properties": {
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/GeodataSource"
+            },
+            "type": "array"
+          },
+          "cron": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "outbound": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "assets",
+          "cron",
+          "enabled",
+          "outbound",
+          "timezone"
         ],
         "type": "object"
       },
@@ -4774,6 +4858,83 @@
           "id",
           "password",
           "username"
+        ],
+        "type": "object"
+      },
+      "XrayRestartRun": {
+        "description": "XrayRestartRun records an actual attempt or a deliberate manual-stop skip.",
+        "properties": {
+          "durationMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "error": {
+            "type": "string"
+          },
+          "startedAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "durationMs",
+          "error",
+          "startedAt",
+          "status",
+          "trigger"
+        ],
+        "type": "object"
+      },
+      "XrayRestartSchedule": {
+        "description": "XrayRestartSchedule is one administrator-defined local-core restart plan.",
+        "properties": {
+          "cron": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "timezone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "cron",
+          "enabled",
+          "timezone"
+        ],
+        "type": "object"
+      },
+      "XrayRestartScheduleView": {
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/XrayRestartSchedule"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/XrayRestartRun"
+            },
+            "type": "array"
+          },
+          "nextRun": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "running": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "config",
+          "history",
+          "nextRun",
+          "running"
         ],
         "type": "object"
       },
@@ -14212,6 +14373,346 @@
                       "type": "string"
                     },
                     "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/xray/schedule/restart": {
+      "get": {
+        "tags": [
+          "Xray Settings"
+        ],
+        "summary": "Read the local Xray restart plan, next execution, running state and last 50 results.",
+        "operationId": "get_panel_api_xray_schedule_restart",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {
+                      "$ref": "#/components/schemas/XrayRestartScheduleView"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "config": {
+                      "cron": "",
+                      "enabled": false,
+                      "timezone": ""
+                    },
+                    "history": [
+                      {
+                        "durationMs": 0,
+                        "error": "",
+                        "startedAt": 0,
+                        "status": "",
+                        "trigger": ""
+                      }
+                    ],
+                    "nextRun": 0,
+                    "running": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Xray Settings"
+        ],
+        "summary": "Save and immediately reschedule the local restart plan without restarting Xray.",
+        "operationId": "post_panel_api_xray_schedule_restart",
+        "description": "JSON body. Five-field cron or @every with a minimum interval of one minute; explicit IANA time zone. Plans default to disabled. Missed executions are not replayed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean",
+                    "description": ""
+                  },
+                  "cron": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": ""
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "cron",
+                  "timezone"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {
+                      "$ref": "#/components/schemas/XrayRestartScheduleView"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "config": {
+                      "cron": "",
+                      "enabled": false,
+                      "timezone": ""
+                    },
+                    "history": [
+                      {
+                        "durationMs": 0,
+                        "error": "",
+                        "startedAt": 0,
+                        "status": "",
+                        "trigger": ""
+                      }
+                    ],
+                    "nextRun": 0,
+                    "running": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/xray/schedule/restart/run": {
+      "post": {
+        "tags": [
+          "Xray Settings"
+        ],
+        "summary": "Run the restart task now and record its result; a manually stopped Xray stays stopped.",
+        "operationId": "post_panel_api_xray_schedule_restart_run",
+        "description": "Forces a process restart, including reconnecting built-in WARP, without rotating its IP. Rejects overlapping task runs. Does not restart external WARP services.",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {
+                      "$ref": "#/components/schemas/XrayRestartRun"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "durationMs": 0,
+                    "error": "",
+                    "startedAt": 0,
+                    "status": "",
+                    "trigger": ""
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/xray/schedule/geodata": {
+      "get": {
+        "tags": [
+          "Xray Settings"
+        ],
+        "summary": "Read the Geo update plan, next scheduled time, standard sources and download outbounds.",
+        "operationId": "get_panel_api_xray_schedule_geodata",
+        "description": "Imports existing geodata configuration. Geo execution results remain in the Xray log.",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {
+                      "$ref": "#/components/schemas/GeodataScheduleView"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "applied": false,
+                    "applyError": "",
+                    "config": {
+                      "assets": [
+                        {
+                          "file": "",
+                          "url": ""
+                        }
+                      ],
+                      "cron": "",
+                      "enabled": false,
+                      "outbound": "",
+                      "timezone": ""
+                    },
+                    "nextRun": 0,
+                    "outboundTags": [
+                      ""
+                    ],
+                    "standardSources": [
+                      {
+                        "file": "",
+                        "url": ""
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Xray Settings"
+        ],
+        "summary": "Patch only the Geo update plan in the latest Xray template and apply it to a running core.",
+        "operationId": "post_panel_api_xray_schedule_geodata",
+        "description": "JSON body. Five-field cron and explicit IANA time zone. Assets must use HTTPS and unique .dat filenames, and must exist before enabling. Changes restart a running core once; unchanged saves keep connections. A stopped core loads it on its next start. success means saved; applied and applyError describe application separately. Disabling retains the asset draft.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean",
+                    "description": ""
+                  },
+                  "cron": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "outbound": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "assets": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    },
+                    "description": "Array of {url, file} Geo assets."
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "cron",
+                  "timezone",
+                  "assets"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {
+                      "$ref": "#/components/schemas/GeodataScheduleView"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "applied": false,
+                    "applyError": "",
+                    "config": {
+                      "assets": [
+                        {
+                          "file": "",
+                          "url": ""
+                        }
+                      ],
+                      "cron": "",
+                      "enabled": false,
+                      "outbound": "",
+                      "timezone": ""
+                    },
+                    "nextRun": 0,
+                    "outboundTags": [
+                      ""
+                    ],
+                    "standardSources": [
+                      {
+                        "file": "",
+                        "url": ""
+                      }
+                    ]
                   }
                 }
               }

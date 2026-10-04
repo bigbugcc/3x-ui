@@ -37,9 +37,10 @@ import {
 } from './balancers/balancer-loopback';
 import { DnsTab } from './dns';
 import { WarpModal, NordModal, PiaModal } from './overrides';
+import ScheduleTab from './schedule/ScheduleTab';
 import './XrayPage.css';
 
-const SECTION_SLUGS = ['basic', 'routing', 'outbound', 'balancer', 'dns', 'advanced'];
+const SECTION_SLUGS = ['basic', 'routing', 'outbound', 'balancer', 'dns', 'advanced', 'schedule'];
 
 type AdvKey = 'xraySetting' | 'inboundSettings' | 'outboundSettings' | 'routingRuleSettings';
 
@@ -222,6 +223,8 @@ export default function XrayPage() {
 
   const sectionBody = (() => {
     switch (activeSection) {
+      case 'schedule':
+        return <ScheduleTab templateDirty={!saveDisabled} />;
       case 'routing':
         return (
           <RoutingTab
@@ -339,23 +342,25 @@ export default function XrayPage() {
                 />
               ) : (
                 <Row gutter={[isMobile ? 8 : 16, isMobile ? 0 : 12]}>
-                  <Col span={24}>
-                    <Card hoverable>
-                      <Row className="header-row">
-                        <Col xs={24} sm={14} className="header-actions">
-                          <Space>
-                            <Button type="primary" disabled={saveDisabled} onClick={onSaveAll}>
-                              {t('pages.xray.save')}
-                            </Button>
-                          </Space>
-                        </Col>
-                        <Col xs={24} sm={10} className="header-info">
-                          <FloatButton.BackTop target={scrollTarget} visibilityHeight={200} />
-                          <Alert type="warning" showIcon title={t('pages.settings.infoDesc')} />
-                        </Col>
-                      </Row>
-                    </Card>
-                  </Col>
+                  {activeSection !== 'schedule' && (
+                    <Col span={24}>
+                      <Card hoverable>
+                        <Row className="header-row">
+                          <Col xs={24} sm={14} className="header-actions">
+                            <Space>
+                              <Button type="primary" disabled={saveDisabled} onClick={onSaveAll}>
+                                {t('pages.xray.save')}
+                              </Button>
+                            </Space>
+                          </Col>
+                          <Col xs={24} sm={10} className="header-info">
+                            <FloatButton.BackTop target={scrollTarget} visibilityHeight={200} />
+                            <Alert type="warning" showIcon title={t('pages.settings.infoDesc')} />
+                          </Col>
+                        </Row>
+                      </Card>
+                    </Col>
+                  )}
 
                   <Col span={24}>
                     <Card hoverable>{sectionBody}</Card>

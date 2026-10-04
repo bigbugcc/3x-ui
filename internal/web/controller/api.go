@@ -6,6 +6,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/middleware"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service/panel"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service/tgbot"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/session"
@@ -25,11 +26,15 @@ type APIController struct {
 	userService           panel.UserService
 	apiTokenService       panel.ApiTokenService
 	Tgbot                 tgbot.Tgbot
+	xrayScheduler         *service.XrayScheduler
 }
 
 // NewAPIController creates a new APIController instance and initializes its routes.
-func NewAPIController(g *gin.RouterGroup) *APIController {
+func NewAPIController(g *gin.RouterGroup, schedulers ...*service.XrayScheduler) *APIController {
 	a := &APIController{}
+	if len(schedulers) > 0 {
+		a.xrayScheduler = schedulers[0]
+	}
 	a.initRouter(g)
 	return a
 }
@@ -204,6 +209,7 @@ func (a *APIController) initRouter(g *gin.RouterGroup) {
 	// /panel/api/xray/*.
 	a.settingController = NewSettingController(api)
 	a.xraySettingController = NewXraySettingController(api)
+	NewXrayScheduleController(api, a.xrayScheduler)
 
 	// Subscription balancers — client-side balancers for the JSON sub output
 	NewSubBalancerController(api)

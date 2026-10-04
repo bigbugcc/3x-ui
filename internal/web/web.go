@@ -131,6 +131,7 @@ type Server struct {
 
 	bus                  *eventbus.Bus
 	cron                 *cron.Cron
+	xrayScheduler        *service.XrayScheduler
 	discordNotifyEntryID cron.EntryID
 
 	ctx    context.Context
@@ -258,7 +259,7 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 
 	s.index = controller.NewIndexController(g)
 	s.panel = controller.NewXUIController(g)
-	s.api = controller.NewAPIController(g)
+	s.api = controller.NewAPIController(g, s.xrayScheduler)
 
 	// Initialize WebSocket hub
 	s.wsHub = websocket.NewHub()
@@ -564,6 +565,12 @@ func (s *Server) start(restartXray bool, startTgBot bool) (err error) {
 		),
 	)
 	s.cron.Start()
+	s.xrayScheduler = service.NewXrayScheduler(s.ctx, s.cron)
+	// Restore before exposing the API: a save during startup must not be
+	// overwritten later by loading an older plan.
+	if err := s.xrayScheduler.Restore(); err != nil {
+		logger.Warning("restore Xray restart schedule: ", err)
+	}
 
 	// Wire the inbound-runtime manager once so InboundService can route
 	// add/update/delete to either the local xray or a remote node panel.
