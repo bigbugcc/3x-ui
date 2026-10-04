@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/amneziawg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
@@ -25,7 +26,15 @@ const (
 	unencryptedOutboundMinimumVersion  = "26.7.11"
 )
 
+var xrayTemplateMu sync.Mutex
+
 func (s *XraySettingService) SaveXraySetting(newXraySettings string) error {
+	xrayTemplateMu.Lock()
+	defer xrayTemplateMu.Unlock()
+	return s.saveXraySettingLocked(newXraySettings)
+}
+
+func (s *XraySettingService) saveXraySettingLocked(newXraySettings string) error {
 	// The frontend round-trips the whole getXraySetting response back
 	// through the textarea, so if it has ever received a wrapped
 	// payload (see UnwrapXrayTemplateConfig) it sends that same wrapper

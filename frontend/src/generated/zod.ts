@@ -640,6 +640,22 @@ export const GeoFileSchema = z.object({
 });
 export type GeoFile = z.infer<typeof GeoFileSchema>;
 
+export const GeodataScheduleViewSchema = z.object({
+  applied: z.boolean(),
+  applyError: z.string(),
+  config: z.lazy(() => GeodataUpdateScheduleSchema),
+  nextRun: z.number().int(),
+  outboundTags: z.array(z.string()),
+  standardSources: z.array(z.lazy(() => GeodataSourceSchema)),
+});
+export type GeodataScheduleView = z.infer<typeof GeodataScheduleViewSchema>;
+
+export const GeodataSourceSchema = z.object({
+  file: z.string(),
+  url: z.string(),
+});
+export type GeodataSource = z.infer<typeof GeodataSourceSchema>;
+
 export const GeodataTokenIssueSchema = z.object({
   code: z.string().optional(),
   file: z.string().optional(),
@@ -647,6 +663,15 @@ export const GeodataTokenIssueSchema = z.object({
   token: z.string(),
 });
 export type GeodataTokenIssue = z.infer<typeof GeodataTokenIssueSchema>;
+
+export const GeodataUpdateScheduleSchema = z.object({
+  assets: z.array(z.lazy(() => GeodataSourceSchema)),
+  cron: z.string(),
+  enabled: z.boolean(),
+  outbound: z.string(),
+  timezone: z.string(),
+});
+export type GeodataUpdateSchedule = z.infer<typeof GeodataUpdateScheduleSchema>;
 
 export const HappLinkResultSchema = z.object({
   encryptedLink: z.string(),
@@ -1159,4 +1184,28 @@ export const UserSchema = z.object({
   username: z.string(),
 });
 export type User = z.infer<typeof UserSchema>;
+
+export const XrayRestartRunSchema = z.object({
+  durationMs: z.number().int(),
+  error: z.string(),
+  startedAt: z.number().int(),
+  status: z.string(),
+  trigger: z.string(),
+});
+export type XrayRestartRun = z.infer<typeof XrayRestartRunSchema>;
+
+export const XrayRestartScheduleSchema = z.object({
+  cron: z.string(),
+  enabled: z.boolean(),
+  timezone: z.string(),
+});
+export type XrayRestartSchedule = z.infer<typeof XrayRestartScheduleSchema>;
+
+export const XrayRestartScheduleViewSchema = z.object({
+  config: z.lazy(() => XrayRestartScheduleSchema),
+  history: z.array(z.lazy(() => XrayRestartRunSchema)),
+  nextRun: z.number().int(),
+  running: z.boolean(),
+});
+export type XrayRestartScheduleView = z.infer<typeof XrayRestartScheduleViewSchema>;
 
