@@ -324,3 +324,25 @@ must match the override, for example `XUI_PORT: "8080"` with `ports: ["8080:8080
 - Bug reports and feature requests: [GitHub Issues](https://github.com/MHSanaei/3x-ui/issues)
 
 Before filing a bug, include the OS, Go version, panel version (`/panel/api/server/status` or the dashboard footer), and the relevant excerpt from `x-ui/3xui.log`.
+
+## Scheduled Xray maintenance
+
+The **Xray settings → Scheduled tasks** section has independent restart and Geo
+update plans. Plans are disabled by default. Restart plans support daily, weekly,
+fixed-interval and five-field cron schedules with an explicit time zone. The
+panel persists the plan and the last 50 restart results in the settings table,
+restores the schedule at startup, and never replays missed executions. Both
+scheduled and immediate task runs respect a manually stopped Xray. A real
+restart reconnects built-in WARP but does not rotate its IP or manage external
+WARP services.
+
+Geo plans reuse Xray's native downloader and hot reload. Saving a Geo plan
+patches only the geodata field of the latest template. A change restarts a
+running core once; unchanged saves keep connections. A stopped core applies it
+on its next start. Files must already exist in the configured asset folder before updates
+are enabled. Disabling the plan retains its file list as a draft. Existing Geo
+plans from the version dialog or advanced JSON are imported without changing
+their server-local time zone; new plans default to UTC. Geo execution results
+remain in the Xray log. The server must run a core supporting geodata updates.
+Save pending edits in other Xray settings sections before saving a Geo plan,
+so a later whole-template save cannot overwrite that plan with an older draft.

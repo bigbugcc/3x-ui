@@ -656,11 +656,53 @@ export const EXAMPLES: Record<string, unknown> = {
     "name": "geosite.dat",
     "size": 1467392
   },
+  "GeodataScheduleView": {
+    "applied": false,
+    "applyError": "",
+    "config": {
+      "assets": [
+        {
+          "file": "",
+          "url": ""
+        }
+      ],
+      "cron": "",
+      "enabled": false,
+      "outbound": "",
+      "timezone": ""
+    },
+    "nextRun": 0,
+    "outboundTags": [
+      ""
+    ],
+    "standardSources": [
+      {
+        "file": "",
+        "url": ""
+      }
+    ]
+  },
+  "GeodataSource": {
+    "file": "",
+    "url": ""
+  },
   "GeodataTokenIssue": {
     "code": "blabla",
     "file": "geosite.dat",
     "reason": "categoryMissing",
     "token": "geosite:blabla"
+  },
+  "GeodataUpdateSchedule": {
+    "assets": [
+      {
+        "file": "",
+        "url": ""
+      }
+    ],
+    "cron": "",
+    "enabled": false,
+    "outbound": "",
+    "timezone": ""
   },
   "HappLinkResult": {
     "encryptedLink": "happ://crypt5/example"
@@ -1183,5 +1225,35 @@ export const EXAMPLES: Record<string, unknown> = {
     "id": 0,
     "password": "",
     "username": ""
+  },
+  "XrayRestartRun": {
+    "durationMs": 0,
+    "error": "",
+    "startedAt": 0,
+    "status": "",
+    "trigger": ""
+  },
+  "XrayRestartSchedule": {
+    "cron": "",
+    "enabled": false,
+    "timezone": ""
+  },
+  "XrayRestartScheduleView": {
+    "config": {
+      "cron": "",
+      "enabled": false,
+      "timezone": ""
+    },
+    "history": [
+      {
+        "durationMs": 0,
+        "error": "",
+        "startedAt": 0,
+        "status": "",
+        "trigger": ""
+      }
+    ],
+    "nextRun": 0,
+    "running": false
   }
 };
