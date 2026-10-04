@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 )
@@ -13,7 +14,7 @@ import (
 // recompiling these per write is wasted work.
 var (
 	crashStartRegex = regexp.MustCompile(`^(panic|fatal error): `)
-	logLineRegex    = regexp.MustCompile(`^(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{6}) \[([^\]]+)\] (.+)$`)
+	logLineRegex    = regexp.MustCompile(`^(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?) \[([^\]]+)\] (.+)$`)
 )
 
 // NewLogWriter returns a new LogWriter for processing Xray log output.
@@ -24,10 +25,32 @@ func NewLogWriter() *LogWriter {
 // LogWriter splits Xray's stdout/stderr into lines and forwards them to the
 // panel log; once a Go panic or fatal error starts, all output is kept for one crash report.
 type LogWriter struct {
-	mu       sync.RWMutex
-	pending  string
-	crash    strings.Builder
-	lastLine string
+	mu              sync.RWMutex
+	pending         string
+	crash           strings.Builder
+	lastLine        string
+	geodataSequence uint64
+	geodataEvents   []GeodataEvent
+}
+
+type GeodataEvent struct {
+	Sequence uint64
+	At       time.Time
+	Kind     string
+	Message  string
+	Target   string
+}
+
+func (lw *LogWriter) GeodataEvents(after uint64) []GeodataEvent {
+	lw.mu.RLock()
+	defer lw.mu.RUnlock()
+	events := make([]GeodataEvent, 0)
+	for _, event := range lw.geodataEvents {
+		if event.Sequence > after {
+			events = append(events, event)
+		}
+	}
+	return events
 }
 
 // LastLine returns the most recently processed Xray log line. It is safe for

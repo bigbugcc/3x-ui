@@ -23,25 +23,34 @@ const (
 
 // XrayRestartSchedule is one administrator-defined local-core restart plan.
 type XrayRestartSchedule struct {
-	Enabled  bool   `json:"enabled"`
-	Cron     string `json:"cron"`
-	Timezone string `json:"timezone"`
+	Enabled          bool     `json:"enabled"`
+	Cron             string   `json:"cron"`
+	Timezone         string   `json:"timezone"`
+	RestartOutbounds []string `json:"restartOutbounds,omitempty"`
+}
+
+type TaskExecutionStep struct {
+	Target string `json:"target"`
+	Status string `json:"status"`
+	Error  string `json:"error"`
 }
 
 // XrayRestartRun records an actual attempt or a deliberate manual-stop skip.
 type XrayRestartRun struct {
-	StartedAt  int64  `json:"startedAt"`
-	DurationMs int64  `json:"durationMs"`
-	Trigger    string `json:"trigger"`
-	Status     string `json:"status"`
-	Error      string `json:"error"`
+	StartedAt  int64               `json:"startedAt"`
+	DurationMs int64               `json:"durationMs"`
+	Trigger    string              `json:"trigger"`
+	Status     string              `json:"status"`
+	Error      string              `json:"error"`
+	Steps      []TaskExecutionStep `json:"steps,omitempty"`
 }
 
 type XrayRestartScheduleView struct {
-	Config  XrayRestartSchedule `json:"config"`
-	NextRun int64               `json:"nextRun"`
-	Running bool                `json:"running"`
-	History []XrayRestartRun    `json:"history"`
+	Config       XrayRestartSchedule `json:"config"`
+	NextRun      int64               `json:"nextRun"`
+	Running      bool                `json:"running"`
+	History      []XrayRestartRun    `json:"history"`
+	OutboundTags []string            `json:"outboundTags"`
 }
 
 // ParseMaintenanceSchedule isolates five-field plans from the seconds-enabled
@@ -78,23 +87,25 @@ func ParseMaintenanceSchedule(spec, timezone string, allowInterval bool) (cron.S
 // XrayScheduler restores persisted plans without replaying missed ticks.
 // runMu serializes manual runs and replaced entries across cron job wrappers.
 type XrayScheduler struct {
-	ctx        context.Context
-	cron       *cron.Cron
-	settings   SettingService
-	mu         sync.Mutex
-	runMu      sync.Mutex
-	entry      cron.EntryID
-	generation uint64
-	config     XrayRestartSchedule
-	running    bool
-	restart    func() (bool, error)
+	ctx              context.Context
+	cron             *cron.Cron
+	settings         SettingService
+	mu               sync.Mutex
+	runMu            sync.Mutex
+	entry            cron.EntryID
+	generation       uint64
+	config           XrayRestartSchedule
+	running          bool
+	restart          func() (bool, error)
+	restartOutbounds func([]string) ([]TaskExecutionStep, error)
 }
 
 func NewXrayScheduler(ctx context.Context, c *cron.Cron) *XrayScheduler {
 	return &XrayScheduler{
 		ctx: ctx, cron: c,
-		config:  XrayRestartSchedule{Cron: "0 4 * * 0", Timezone: "UTC"},
-		restart: (&XrayService{}).RestartXrayScheduled,
+		config:           XrayRestartSchedule{Cron: "0 4 * * 0", Timezone: "UTC"},
+		restart:          (&XrayService{}).RestartXrayScheduled,
+		restartOutbounds: (&XrayService{}).RestartScheduledOutbounds,
 	}
 }
 
@@ -119,6 +130,17 @@ func (s *XrayScheduler) Restore() error {
 }
 
 func (s *XrayScheduler) Save(cfg XrayRestartSchedule) error {
+	if len(cfg.RestartOutbounds) > 64 {
+		return errors.New("at most 64 additional outbounds may be restarted")
+	}
+	seen := map[string]bool{}
+	for _, tag := range cfg.RestartOutbounds {
+		if tag == "" || strings.TrimSpace(tag) != tag || len(tag) > 255 || seen[tag] {
+			return errors.New("invalid or duplicate restart outbound tag")
+		}
+		seen[tag] = true
+	}
+	cfg.RestartOutbounds = append([]string(nil), cfg.RestartOutbounds...)
 	cfg.Cron = strings.TrimSpace(cfg.Cron)
 	schedule, err := ParseMaintenanceSchedule(cfg.Cron, cfg.Timezone, true)
 	if err != nil {
@@ -165,6 +187,11 @@ func (s *XrayScheduler) View() (*XrayRestartScheduleView, error) {
 		return nil, err
 	}
 	view := &XrayRestartScheduleView{Config: s.config, Running: s.running, History: history}
+	view.Config.RestartOutbounds = append([]string(nil), s.config.RestartOutbounds...)
+	view.OutboundTags = []string{}
+	if geo, err := (&XraySettingService{}).GetGeodataSchedule(); err == nil {
+		view.OutboundTags = geo.OutboundTags
+	}
 	if s.entry != 0 {
 		next := s.cron.Entry(s.entry).Next
 		if !next.IsZero() {
@@ -193,6 +220,7 @@ func (s *XrayScheduler) run(trigger string, generation uint64) (*XrayRestartRun,
 		return nil, nil
 	}
 	s.running = true
+	tags := append([]string(nil), s.config.RestartOutbounds...)
 	s.mu.Unlock()
 	defer func() {
 		s.mu.Lock()
@@ -203,26 +231,16 @@ func (s *XrayScheduler) run(trigger string, generation uint64) (*XrayRestartRun,
 	start := time.Now()
 	record := &XrayRestartRun{StartedAt: start.UnixMilli(), Trigger: trigger, Status: "success"}
 	attempted, runErr := s.restart()
+	if attempted && runErr == nil && len(tags) > 0 {
+		record.Steps, runErr = s.restartOutbounds(tags)
+	}
 	record.DurationMs = time.Since(start).Milliseconds()
 	if runErr != nil {
 		record.Status, record.Error = "failed", runErr.Error()
 	} else if !attempted {
 		record.Status = "skipped"
 	}
-	s.mu.Lock()
-	history, persistErr := s.historyLocked()
-	if persistErr == nil {
-		history = append([]XrayRestartRun{*record}, history...)
-		if len(history) > maxRestartHistory {
-			history = history[:maxRestartHistory]
-		}
-		encoded, err := json.Marshal(history)
-		persistErr = err
-		if err == nil {
-			persistErr = s.settings.saveSetting(restartHistoryKey, string(encoded))
-		}
-	}
-	s.mu.Unlock()
+	persistErr := appendTaskExecutionLog(TaskExecutionLog{XrayRestartRun: *record, Task: "restart"})
 	if persistErr != nil {
 		persistErr = fmt.Errorf("restart result could not be saved: %w", persistErr)
 	}
@@ -231,13 +249,14 @@ func (s *XrayScheduler) run(trigger string, generation uint64) (*XrayRestartRun,
 
 func (s *XrayScheduler) historyLocked() ([]XrayRestartRun, error) {
 	history := []XrayRestartRun{}
-	stored, err := s.settings.getSetting(restartHistoryKey)
-	if database.IsNotFound(err) {
-		return history, nil
-	}
+	view, err := GetTaskExecutionLogs()
 	if err != nil {
 		return nil, err
 	}
-	err = json.Unmarshal([]byte(stored.Value), &history)
-	return history, err
+	for _, record := range view.History {
+		if record.Task == "restart" && len(history) < maxRestartHistory {
+			history = append(history, record.XrayRestartRun)
+		}
+	}
+	return history, nil
 }

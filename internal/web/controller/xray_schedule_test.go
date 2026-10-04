@@ -88,6 +88,9 @@ func TestXrayScheduleAPIRoutesRequireAdmin(t *testing.T) {
 		{http.MethodPost, "/panel/api/xray/schedule/restart/run"},
 		{http.MethodGet, "/panel/api/xray/schedule/geodata"},
 		{http.MethodPost, "/panel/api/xray/schedule/geodata"},
+		{http.MethodGet, "/panel/api/xray/schedule/logs"},
+		{http.MethodPost, "/panel/api/xray/schedule/logs/settings"},
+		{http.MethodPost, "/panel/api/xray/schedule/logs/clear"},
 	} {
 		req := httptest.NewRequest(route.method, route.path, nil)
 		req.Header.Set("X-Requested-With", "XMLHttpRequest")

@@ -11,6 +11,7 @@ const VIEW = {
   nextRun: 0,
   running: false,
   history: [],
+  outboundTags: ['warp', 'nord', 'pia'],
 };
 
 afterEach(() => {
@@ -19,6 +20,28 @@ afterEach(() => {
 });
 
 describe('restart schedule', () => {
+  it('saves selected VPN outbound restarts and retains them in the editor', async () => {
+    const config = { ...VIEW.config, restartOutbounds: ['warp'] };
+    let saved = false;
+    const savedConfig = { ...config, restartOutbounds: ['warp', 'nord'] };
+    vi.spyOn(HttpUtil, 'get').mockImplementation(
+      async () => new Msg(true, '', { ...VIEW, config: saved ? savedConfig : config }),
+    );
+    const post = vi.spyOn(HttpUtil, 'post').mockImplementation(async () => {
+      saved = true;
+      return new Msg(true, '', { ...VIEW, config: savedConfig });
+    });
+    const user = userEvent.setup();
+    render(<RestartScheduleSection />);
+    await user.click(await screen.findByText('Advanced: additional outbound restarts'));
+    const warp = await screen.findByRole('checkbox', { name: 'warp' });
+    expect((warp as HTMLInputElement).checked).toBe(true);
+    await user.click(screen.getByRole('checkbox', { name: 'nord' }));
+    await user.click(screen.getByRole('button', { name: 'Save restart plan' }));
+    await screen.findByText('Plan saved');
+    expect((screen.getByRole('checkbox', { name: 'nord' }) as HTMLInputElement).checked).toBe(true);
+    expect(post.mock.calls[0]?.[1]).toEqual({ ...config, restartOutbounds: ['warp', 'nord'] });
+  });
   it('preserves an unsaved plan when polling updates the running status', async () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
     vi.spyOn(HttpUtil, 'get')

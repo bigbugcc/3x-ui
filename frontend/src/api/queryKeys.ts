@@ -46,6 +46,7 @@ export const keys = {
     schedule: {
       restart: () => ['xray', 'schedule', 'restart'] as const,
       geodata: () => ['xray', 'schedule', 'geodata'] as const,
+      logs: () => ['xray', 'schedule', 'logs'] as const,
     },
     geodata: {
       root: () => ['xray', 'geodata'] as const,

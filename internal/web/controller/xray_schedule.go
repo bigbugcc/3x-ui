@@ -23,7 +23,36 @@ func NewXrayScheduleController(g *gin.RouterGroup, scheduler *service.XraySchedu
 	g.POST("/restart/run", a.runRestart)
 	g.GET("/geodata", a.getGeodata)
 	g.POST("/geodata", a.saveGeodata)
+	g.GET("/logs", a.getLogs)
+	g.POST("/logs/settings", a.saveLogSettings)
+	g.POST("/logs/clear", a.clearLogs)
 	return a
+}
+
+func (a *XrayScheduleController) getLogs(c *gin.Context) {
+	view, err := service.GetTaskExecutionLogs()
+	jsonObj(c, view, err)
+}
+
+func (a *XrayScheduleController) saveLogSettings(c *gin.Context) {
+	var cfg service.TaskLogSettings
+	if err := c.ShouldBindJSON(&cfg); err != nil {
+		pureJsonMsg(c, http.StatusBadRequest, false, err.Error())
+		return
+	}
+	if err := service.SaveTaskLogSettings(cfg); err != nil {
+		jsonObj(c, nil, err)
+		return
+	}
+	a.getLogs(c)
+}
+
+func (a *XrayScheduleController) clearLogs(c *gin.Context) {
+	if err := service.ClearTaskExecutionLogs(); err != nil {
+		jsonObj(c, nil, err)
+		return
+	}
+	a.getLogs(c)
 }
 
 func (a *XrayScheduleController) schedulerReady(c *gin.Context) bool {

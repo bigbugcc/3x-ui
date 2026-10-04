@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -78,7 +79,7 @@ func TestRestartSchedulePersistenceReplacementAndDisable(t *testing.T) {
 	if err := restored.Restore(); err != nil {
 		t.Fatal(err)
 	}
-	if restored.config != plan || len(restored.cron.Entries()) != 1 {
+	if !reflect.DeepEqual(restored.config, plan) || len(restored.cron.Entries()) != 1 {
 		t.Fatal("plan not restored")
 	}
 	plan.Enabled = false
@@ -117,7 +118,7 @@ func TestRestartScheduleFailedSaveKeepsActivePlan(t *testing.T) {
 	if err := s.Save(changed); !errors.Is(err, errInjected) {
 		t.Fatalf("save error = %v", err)
 	}
-	if s.config != plan || s.entry != entry {
+	if !reflect.DeepEqual(s.config, plan) || s.entry != entry {
 		t.Fatal("failed persistence changed active plan")
 	}
 }
@@ -194,5 +195,41 @@ func TestScheduledRestartReportsInvalidConfigAndGeoDoesNotReviveStoppedCore(t *t
 	isManuallyStopped.Store(true)
 	if attempted, err := (&XrayService{}).RestartXrayIfRunning(); attempted || err != nil {
 		t.Fatalf("geodata revived a stopped core: %v, %v", attempted, err)
+	}
+}
+
+func TestRestartScheduleAdditionalOutboundsPersistFailureAndRespectStop(t *testing.T) {
+	setupSettingTestDB(t)
+	s := newTestXrayScheduler(t)
+	plan := XrayRestartSchedule{Cron: "0 4 * * *", Timezone: "UTC", RestartOutbounds: []string{"warp", "nord", "pia"}}
+	if err := s.Save(plan); err != nil {
+		t.Fatal(err)
+	}
+	restored := newTestXrayScheduler(t)
+	if err := restored.Restore(); err != nil || !reflect.DeepEqual(restored.config, plan) {
+		t.Fatalf("additional options not restored: %+v, %v", restored.config, err)
+	}
+	s.restart = func() (bool, error) { return false, nil }
+	s.restartOutbounds = func([]string) ([]TaskExecutionStep, error) {
+		t.Fatal("manual-stop skip reconnected outbounds")
+		return nil, nil
+	}
+	if record, err := s.RunNow(); err != nil || record.Status != "skipped" {
+		t.Fatalf("stopped run = %+v, %v", record, err)
+	}
+	s.restart = func() (bool, error) { return true, nil }
+	s.restartOutbounds = func(tags []string) ([]TaskExecutionStep, error) {
+		if !reflect.DeepEqual(tags, plan.RestartOutbounds) {
+			t.Fatalf("wrong snapshot: %v", tags)
+		}
+		return []TaskExecutionStep{{Target: "warp", Status: "failed", Error: "handler unavailable"}}, errors.New("handler unavailable")
+	}
+	record, err := s.RunNow()
+	if err == nil || record.Status != "failed" || len(record.Steps) != 1 {
+		t.Fatalf("additional failure = %+v, %v", record, err)
+	}
+	view, err := GetTaskExecutionLogs()
+	if err != nil || view.History[0].Steps[0].Error != "handler unavailable" {
+		t.Fatalf("lost additional result: %+v, %v", view, err)
 	}
 }

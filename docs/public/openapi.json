@@ -2585,6 +2585,36 @@
         ],
         "type": "object"
       },
+      "GeodataHashComparison": {
+        "properties": {
+          "baselineAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "currentHash": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "file": {
+            "example": "geosite.dat",
+            "type": "string"
+          },
+          "previousHash": {
+            "type": "string"
+          },
+          "status": {
+            "example": "changed",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "status"
+        ],
+        "type": "object"
+      },
       "GeodataScheduleView": {
         "properties": {
           "applied": {
@@ -4735,6 +4765,110 @@
         ],
         "type": "object"
       },
+      "TaskExecutionLog": {
+        "properties": {
+          "details": {
+            "type": "string"
+          },
+          "durationMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "error": {
+            "type": "string"
+          },
+          "hashComparisons": {
+            "items": {
+              "$ref": "#/components/schemas/GeodataHashComparison"
+            },
+            "type": "array"
+          },
+          "id": {
+            "type": "string"
+          },
+          "startedAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/TaskExecutionStep"
+            },
+            "type": "array"
+          },
+          "task": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "details",
+          "durationMs",
+          "error",
+          "id",
+          "startedAt",
+          "status",
+          "task",
+          "trigger"
+        ],
+        "type": "object"
+      },
+      "TaskExecutionLogView": {
+        "properties": {
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/TaskExecutionLog"
+            },
+            "type": "array"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/TaskLogSettings"
+          }
+        },
+        "required": [
+          "history",
+          "settings"
+        ],
+        "type": "object"
+      },
+      "TaskExecutionStep": {
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error",
+          "status",
+          "target"
+        ],
+        "type": "object"
+      },
+      "TaskLogSettings": {
+        "properties": {
+          "retentionDays": {
+            "example": 30,
+            "maximum": 365,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "retentionDays"
+        ],
+        "type": "object"
+      },
       "Traffic": {
         "description": "Traffic represents network traffic statistics for Xray connections.\nIt tracks upload and download bytes for inbound or outbound traffic.",
         "properties": {
@@ -4879,6 +5013,12 @@
           "status": {
             "type": "string"
           },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/TaskExecutionStep"
+            },
+            "type": "array"
+          },
           "trigger": {
             "type": "string"
           }
@@ -4900,6 +5040,12 @@
           },
           "enabled": {
             "type": "boolean"
+          },
+          "restartOutbounds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "timezone": {
             "type": "string"
@@ -4927,6 +5073,12 @@
             "format": "int64",
             "type": "integer"
           },
+          "outboundTags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "running": {
             "type": "boolean"
           }
@@ -4935,6 +5087,7 @@
           "config",
           "history",
           "nextRun",
+          "outboundTags",
           "running"
         ],
         "type": "object"
@@ -14414,6 +14567,9 @@
                     "config": {
                       "cron": "",
                       "enabled": false,
+                      "restartOutbounds": [
+                        ""
+                      ],
                       "timezone": ""
                     },
                     "history": [
@@ -14422,10 +14578,20 @@
                         "error": "",
                         "startedAt": 0,
                         "status": "",
+                        "steps": [
+                          {
+                            "error": "",
+                            "status": "",
+                            "target": ""
+                          }
+                        ],
                         "trigger": ""
                       }
                     ],
                     "nextRun": 0,
+                    "outboundTags": [
+                      ""
+                    ],
                     "running": false
                   }
                 }
@@ -14459,6 +14625,13 @@
                   "timezone": {
                     "type": "string",
                     "description": ""
+                  },
+                  "restartOutbounds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Configured outbound tags to recreate after the core restart (for example WARP, NordVPN and PIA)."
                   }
                 },
                 "required": [
@@ -14495,6 +14668,9 @@
                     "config": {
                       "cron": "",
                       "enabled": false,
+                      "restartOutbounds": [
+                        ""
+                      ],
                       "timezone": ""
                     },
                     "history": [
@@ -14503,10 +14679,20 @@
                         "error": "",
                         "startedAt": 0,
                         "status": "",
+                        "steps": [
+                          {
+                            "error": "",
+                            "status": "",
+                            "target": ""
+                          }
+                        ],
                         "trigger": ""
                       }
                     ],
                     "nextRun": 0,
+                    "outboundTags": [
+                      ""
+                    ],
                     "running": false
                   }
                 }
@@ -14550,6 +14736,13 @@
                     "error": "",
                     "startedAt": 0,
                     "status": "",
+                    "steps": [
+                      {
+                        "error": "",
+                        "status": "",
+                        "target": ""
+                      }
+                    ],
                     "trigger": ""
                   }
                 }
@@ -14566,7 +14759,7 @@
         ],
         "summary": "Read the Geo update plan, next scheduled time, standard sources and download outbounds.",
         "operationId": "get_panel_api_xray_schedule_geodata",
-        "description": "Imports existing geodata configuration. Geo execution results remain in the Xray log.",
+        "description": "Imports existing geodata configuration. Execution observations are recorded in the shared schedule logs without replacing the native hot-reload job.",
         "responses": {
           "200": {
             "description": "Successful response",
@@ -14714,6 +14907,234 @@
                         "url": ""
                       }
                     ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/xray/schedule/logs": {
+      "get": {
+        "tags": [
+          "Xray Settings"
+        ],
+        "summary": "Read shared Xray restart and Geo execution records and retention settings.",
+        "operationId": "get_panel_api_xray_schedule_logs",
+        "description": "Legacy restart history is imported once. Geo records use native execution events to report completed reloads, committed downloads, and failures. Successful downloads include per-file SHA-256 comparisons against the last confirmed successful snapshot: baseline, changed, unchanged, or unavailable. Baselines persist independently of log retention and clearing. Manual file edits between runs count as changes. Hash-read failures do not change the execution result. With no assets configured, a successful run reloads existing databases only. Interrupted or incomplete results remain unconfirmed. Expired records are pruned; at most 5,000 records are retained.",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {
+                      "$ref": "#/components/schemas/TaskExecutionLogView"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "history": [
+                      {
+                        "details": "",
+                        "durationMs": 0,
+                        "error": "",
+                        "hashComparisons": [
+                          {
+                            "baselineAt": 0,
+                            "currentHash": "",
+                            "error": "",
+                            "file": "geosite.dat",
+                            "previousHash": "",
+                            "status": "changed"
+                          }
+                        ],
+                        "id": "",
+                        "startedAt": 0,
+                        "status": "",
+                        "steps": [
+                          {
+                            "error": "",
+                            "status": "",
+                            "target": ""
+                          }
+                        ],
+                        "task": "",
+                        "trigger": ""
+                      }
+                    ],
+                    "settings": {
+                      "retentionDays": 30
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/xray/schedule/logs/settings": {
+      "post": {
+        "tags": [
+          "Xray Settings"
+        ],
+        "summary": "Save execution-log retention and remove expired records.",
+        "operationId": "post_panel_api_xray_schedule_logs_settings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "retentionDays": {
+                    "type": "integer",
+                    "description": "Whole number from 1 to 365; default 30 days."
+                  }
+                },
+                "required": [
+                  "retentionDays"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {
+                      "$ref": "#/components/schemas/TaskExecutionLogView"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "history": [
+                      {
+                        "details": "",
+                        "durationMs": 0,
+                        "error": "",
+                        "hashComparisons": [
+                          {
+                            "baselineAt": 0,
+                            "currentHash": "",
+                            "error": "",
+                            "file": "geosite.dat",
+                            "previousHash": "",
+                            "status": "changed"
+                          }
+                        ],
+                        "id": "",
+                        "startedAt": 0,
+                        "status": "",
+                        "steps": [
+                          {
+                            "error": "",
+                            "status": "",
+                            "target": ""
+                          }
+                        ],
+                        "task": "",
+                        "trigger": ""
+                      }
+                    ],
+                    "settings": {
+                      "retentionDays": 30
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/xray/schedule/logs/clear": {
+      "post": {
+        "tags": [
+          "Xray Settings"
+        ],
+        "summary": "Clear shared execution records while preserving schedule and retention settings.",
+        "operationId": "post_panel_api_xray_schedule_logs_clear",
+        "description": "Running tasks may write their final result after clearing.",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {
+                      "$ref": "#/components/schemas/TaskExecutionLogView"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "history": [
+                      {
+                        "details": "",
+                        "durationMs": 0,
+                        "error": "",
+                        "hashComparisons": [
+                          {
+                            "baselineAt": 0,
+                            "currentHash": "",
+                            "error": "",
+                            "file": "geosite.dat",
+                            "previousHash": "",
+                            "status": "changed"
+                          }
+                        ],
+                        "id": "",
+                        "startedAt": 0,
+                        "status": "",
+                        "steps": [
+                          {
+                            "error": "",
+                            "status": "",
+                            "target": ""
+                          }
+                        ],
+                        "task": "",
+                        "trigger": ""
+                      }
+                    ],
+                    "settings": {
+                      "retentionDays": 30
+                    }
                   }
                 }
               }

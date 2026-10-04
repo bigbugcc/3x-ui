@@ -2,10 +2,13 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,8 +29,19 @@ func TestXrayScheduleRealCoreLifecycle(t *testing.T) {
 	t.Setenv("XUI_BIN_FOLDER", dir)
 	t.Setenv("XUI_LOG_FOLDER", dir)
 	t.Setenv("XRAY_LOCATION_ASSET", dir)
-	if err := os.Symlink(binary, filepath.Join(dir, xray.GetBinaryName())); err != nil {
-		t.Fatal(err)
+	t.Setenv("ZONEINFO", filepath.Join(runtime.GOROOT(), "lib", "time", "zoneinfo.zip"))
+	binaryName := xray.GetBinaryName()
+	if runtime.GOOS == "windows" {
+		binaryName += ".exe"
+	}
+	if err := os.Symlink(binary, filepath.Join(dir, binaryName)); err != nil {
+		data, readErr := os.ReadFile(binary)
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		if copyErr := os.WriteFile(filepath.Join(dir, binaryName), data, 0o700); copyErr != nil {
+			t.Fatal(copyErr)
+		}
 	}
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -56,8 +70,11 @@ func TestXrayScheduleRealCoreLifecycle(t *testing.T) {
 	waitForMaintenanceCore(t, port)
 	first := currentXrayProcess()
 	scheduler := NewXrayScheduler(context.Background(), cron.New())
+	if err := scheduler.Save(XrayRestartSchedule{Cron: "0 4 * * *", Timezone: "UTC", RestartOutbounds: []string{"direct"}}); err != nil {
+		t.Fatal(err)
+	}
 	record, err := scheduler.RunNow()
-	if err != nil || record.Status != "success" {
+	if err != nil || record.Status != "success" || len(record.Steps) != 1 || record.Steps[0].Target != "direct" || record.Steps[0].Status != "success" {
 		t.Fatalf("real restart = %+v, %v", record, err)
 	}
 	waitForMaintenanceCore(t, port)
@@ -94,8 +111,121 @@ func TestXrayScheduleRealCoreLifecycle(t *testing.T) {
 	if currentXrayProcess() == second || second.IsRunning() {
 		t.Fatal("changed Geo plan did not restart the core")
 	}
+	// Default warning logs must still expose actual reload completion to the monitor.
+	template, err = settings.GetXrayConfigTemplate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var native map[string]any
+	if err := json.Unmarshal([]byte(template), &native); err != nil {
+		t.Fatal(err)
+	}
+	native["log"] = map[string]any{"loglevel": "warning"}
+	native["geodata"] = map[string]any{"cron": "@every 1s", "assets": []any{}}
+	apply := func() {
+		t.Helper()
+		raw, err := json.Marshal(native)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := settings.SaveXraySetting(string(raw)); err != nil {
+			t.Fatal(err)
+		}
+		if err := svc.RestartXray(true); err != nil {
+			t.Fatal(err)
+		}
+		waitForMaintenanceCore(t, port)
+		if err := ClearTaskExecutionLogs(); err != nil {
+			t.Fatal(err)
+		}
+		persisted, err := os.ReadFile(xray.GetConfigPath())
+		if err != nil {
+			t.Fatal(err)
+		}
+		var desired map[string]json.RawMessage
+		if err := json.Unmarshal(persisted, &desired); err != nil {
+			t.Fatal(err)
+		}
+		actualLog, _ := json.Marshal(native["log"])
+		var logFromDisk any
+		_ = json.Unmarshal(desired["log"], &logFromDisk)
+		diskLog, _ := json.Marshal(logFromDisk)
+		if string(actualLog) != string(diskLog) {
+			t.Fatalf("observation changed persisted log settings: %s != %s", actualLog, diskLog)
+		}
+	}
+	assertGeo := func(details string) {
+		t.Helper()
+		monitor := &GeodataExecutionMonitor{}
+		core := currentXrayProcess()
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			monitor.Poll()
+			logs, err := GetTaskExecutionLogs()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, entry := range logs.History {
+				if entry.Task == "geodata" && entry.Status == "success" && entry.Details == details {
+					if currentXrayProcess() != core || !core.IsRunning() {
+						t.Fatal("observing a native reload restarted the core")
+					}
+					return
+				}
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		t.Fatalf("native Geo completion %q was not recorded", details)
+	}
+	apply()
+	assertGeo("geoReloadOnly")
+	native["log"] = map[string]any{"loglevel": "warning", "error": filepath.Join(dir, "native-error.log")}
+	apply()
+	assertGeo("geoReloadOnly")
+	native["log"] = map[string]any{"loglevel": "none"}
+	apply()
+	assertGeo("geoReloadOnly")
+	native["log"] = map[string]any{"loglevel": "error"}
+	native["geodata"] = map[string]any{"cron": "@every 1s", "assets": []any{map[string]any{"file": "geosite.dat", "url": "https://127.0.0.1:1/geosite.dat"}}}
+	apply()
+	// A local closed port exercises native download failure without external network.
+	monitor := &GeodataExecutionMonitor{}
+	deadline := time.Now().Add(10 * time.Second)
+	observedFailure := false
+	for time.Now().Before(deadline) {
+		monitor.Poll()
+		logs, err := GetTaskExecutionLogs()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, entry := range logs.History {
+			if entry.Task == "geodata" && entry.Status == "failed" && strings.Contains(entry.Error, "scheduled geodata reload failed") {
+				observedFailure = true
+			}
+		}
+		if observedFailure {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !observedFailure {
+		t.Fatal("native Geo failure was not recorded")
+	}
+	downloadObserved := false
+	for _, event := range currentXrayProcess().GeodataEvents(0) {
+		if event.Kind == "download" && event.Target == filepath.Join(dir, "geosite.dat") {
+			downloadObserved = true
+		}
+	}
+	if !downloadObserved {
+		t.Fatal("native asset location was not captured")
+	}
 	if err := svc.StopXray(); err != nil {
 		t.Fatal(err)
+	}
+	privateConfigs, err := filepath.Glob(filepath.Join(dir, ".config-geodata-*.json"))
+	if err != nil || len(privateConfigs) != 0 {
+		t.Fatalf("private configs leaked after core stop: %v, %v", privateConfigs, err)
 	}
 	record, err = scheduler.RunNow()
 	if err != nil || record.Status != "skipped" || svc.IsXrayRunning() {

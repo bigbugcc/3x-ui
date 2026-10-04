@@ -603,6 +603,15 @@ export interface GeoFile {
   size: number;
 }
 
+export interface GeodataHashComparison {
+  baselineAt?: number;
+  currentHash?: string;
+  error?: string;
+  file: string;
+  previousHash?: string;
+  status: string;
+}
+
 export interface GeodataScheduleView {
   applied: boolean;
   applyError: string;
@@ -1078,6 +1087,34 @@ export interface SubBalancer {
   updatedAt: number;
 }
 
+export interface TaskExecutionLog {
+  details: string;
+  durationMs: number;
+  error: string;
+  hashComparisons?: GeodataHashComparison[];
+  id: string;
+  startedAt: number;
+  status: string;
+  steps?: TaskExecutionStep[];
+  task: string;
+  trigger: string;
+}
+
+export interface TaskExecutionLogView {
+  history: TaskExecutionLog[];
+  settings: TaskLogSettings;
+}
+
+export interface TaskExecutionStep {
+  error: string;
+  status: string;
+  target: string;
+}
+
+export interface TaskLogSettings {
+  retentionDays: number;
+}
+
 export interface Traffic {
   Down: number;
   IsInbound: boolean;
@@ -1117,12 +1154,14 @@ export interface XrayRestartRun {
   error: string;
   startedAt: number;
   status: string;
+  steps?: TaskExecutionStep[];
   trigger: string;
 }
 
 export interface XrayRestartSchedule {
   cron: string;
   enabled: boolean;
+  restartOutbounds?: string[];
   timezone: string;
 }
 
@@ -1130,6 +1169,7 @@ export interface XrayRestartScheduleView {
   config: XrayRestartSchedule;
   history: XrayRestartRun[];
   nextRun: number;
+  outboundTags: string[];
   running: boolean;
 }
 

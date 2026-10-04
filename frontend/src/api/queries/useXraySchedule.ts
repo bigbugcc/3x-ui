@@ -5,8 +5,13 @@ import {
   GeodataScheduleViewSchema,
   XrayRestartRunSchema,
   XrayRestartScheduleViewSchema,
+  TaskExecutionLogViewSchema,
 } from '@/generated/zod';
-import type { GeodataUpdateSchedule, XrayRestartSchedule } from '@/generated/types';
+import type {
+  GeodataUpdateSchedule,
+  XrayRestartSchedule,
+  TaskLogSettings,
+} from '@/generated/types';
 import { HttpUtil, type Msg } from '@/utils';
 import { parseMsg } from '@/utils/zodValidate';
 import { keys } from '@/api/queryKeys';
@@ -77,9 +82,42 @@ export function useXrayRestartSchedule() {
   });
   const run = useMutation({
     mutationFn: runRestartSchedule,
-    onSettled: () => queryClient.invalidateQueries({ queryKey: keys.xray.schedule.restart() }),
+    onSettled: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: keys.xray.schedule.restart() }),
+        queryClient.invalidateQueries({ queryKey: keys.xray.schedule.logs() }),
+      ]);
+    },
   });
   return { query, save, run };
+}
+
+export function useTaskExecutionLogs() {
+  const queryClient = useQueryClient();
+  const parse = (msg: Msg) => result(msg, TaskExecutionLogViewSchema, 'xray/schedule/logs');
+  const query = useQuery({
+    queryKey: keys.xray.schedule.logs(),
+    queryFn: async () =>
+      parse(await HttpUtil.get('/panel/api/xray/schedule/logs', undefined, { silent: true })),
+    refetchInterval: 10000,
+    retry: false,
+  });
+  const onSuccess = async (next: z.infer<typeof TaskExecutionLogViewSchema>) => {
+    await queryClient.cancelQueries({ queryKey: keys.xray.schedule.logs() });
+    queryClient.setQueryData(keys.xray.schedule.logs(), next);
+    await queryClient.invalidateQueries({ queryKey: keys.xray.schedule.restart() });
+  };
+  const save = useMutation({
+    mutationFn: async (settings: TaskLogSettings) =>
+      parse(await HttpUtil.post('/panel/api/xray/schedule/logs/settings', settings, JSON_OPTIONS)),
+    onSuccess,
+  });
+  const clear = useMutation({
+    mutationFn: async () =>
+      parse(await HttpUtil.post('/panel/api/xray/schedule/logs/clear', undefined, JSON_OPTIONS)),
+    onSuccess,
+  });
+  return { query, save, clear };
 }
 
 export function useGeodataUpdateSchedule(active: boolean) {

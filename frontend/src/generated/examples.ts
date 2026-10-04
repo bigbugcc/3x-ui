@@ -656,6 +656,14 @@ export const EXAMPLES: Record<string, unknown> = {
     "name": "geosite.dat",
     "size": 1467392
   },
+  "GeodataHashComparison": {
+    "baselineAt": 0,
+    "currentHash": "",
+    "error": "",
+    "file": "geosite.dat",
+    "previousHash": "",
+    "status": "changed"
+  },
   "GeodataScheduleView": {
     "applied": false,
     "applyError": "",
@@ -1194,6 +1202,75 @@ export const EXAMPLES: Record<string, unknown> = {
     "strategy": "random",
     "updatedAt": 1710000000000
   },
+  "TaskExecutionLog": {
+    "details": "",
+    "durationMs": 0,
+    "error": "",
+    "hashComparisons": [
+      {
+        "baselineAt": 0,
+        "currentHash": "",
+        "error": "",
+        "file": "geosite.dat",
+        "previousHash": "",
+        "status": "changed"
+      }
+    ],
+    "id": "",
+    "startedAt": 0,
+    "status": "",
+    "steps": [
+      {
+        "error": "",
+        "status": "",
+        "target": ""
+      }
+    ],
+    "task": "",
+    "trigger": ""
+  },
+  "TaskExecutionLogView": {
+    "history": [
+      {
+        "details": "",
+        "durationMs": 0,
+        "error": "",
+        "hashComparisons": [
+          {
+            "baselineAt": 0,
+            "currentHash": "",
+            "error": "",
+            "file": "geosite.dat",
+            "previousHash": "",
+            "status": "changed"
+          }
+        ],
+        "id": "",
+        "startedAt": 0,
+        "status": "",
+        "steps": [
+          {
+            "error": "",
+            "status": "",
+            "target": ""
+          }
+        ],
+        "task": "",
+        "trigger": ""
+      }
+    ],
+    "settings": {
+      "retentionDays": 30
+    }
+  },
+  "TaskExecutionStep": {
+    "error": "",
+    "status": "",
+    "target": ""
+  },
+  "TaskLogSettings": {
+    "retentionDays": 30
+  },
   "Traffic": {
     "Down": 2097152,
     "IsInbound": true,
@@ -1231,17 +1308,30 @@ export const EXAMPLES: Record<string, unknown> = {
     "error": "",
     "startedAt": 0,
     "status": "",
+    "steps": [
+      {
+        "error": "",
+        "status": "",
+        "target": ""
+      }
+    ],
     "trigger": ""
   },
   "XrayRestartSchedule": {
     "cron": "",
     "enabled": false,
+    "restartOutbounds": [
+      ""
+    ],
     "timezone": ""
   },
   "XrayRestartScheduleView": {
     "config": {
       "cron": "",
       "enabled": false,
+      "restartOutbounds": [
+        ""
+      ],
       "timezone": ""
     },
     "history": [
@@ -1250,10 +1340,20 @@ export const EXAMPLES: Record<string, unknown> = {
         "error": "",
         "startedAt": 0,
         "status": "",
+        "steps": [
+          {
+            "error": "",
+            "status": "",
+            "target": ""
+          }
+        ],
         "trigger": ""
       }
     ],
     "nextRun": 0,
+    "outboundTags": [
+      ""
+    ],
     "running": false
   }
 };
