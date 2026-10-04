@@ -640,6 +640,16 @@ export const GeoFileSchema = z.object({
 });
 export type GeoFile = z.infer<typeof GeoFileSchema>;
 
+export const GeodataHashComparisonSchema = z.object({
+  baselineAt: z.number().int().optional(),
+  currentHash: z.string().optional(),
+  error: z.string().optional(),
+  file: z.string(),
+  previousHash: z.string().optional(),
+  status: z.string(),
+});
+export type GeodataHashComparison = z.infer<typeof GeodataHashComparisonSchema>;
+
 export const GeodataScheduleViewSchema = z.object({
   applied: z.boolean(),
   applyError: z.string(),
@@ -1147,6 +1157,38 @@ export const SubBalancerSchema = z.object({
 });
 export type SubBalancer = z.infer<typeof SubBalancerSchema>;
 
+export const TaskExecutionLogSchema = z.object({
+  details: z.string(),
+  durationMs: z.number().int(),
+  error: z.string(),
+  hashComparisons: z.array(z.lazy(() => GeodataHashComparisonSchema)).optional(),
+  id: z.string(),
+  startedAt: z.number().int(),
+  status: z.string(),
+  steps: z.array(z.lazy(() => TaskExecutionStepSchema)).optional(),
+  task: z.string(),
+  trigger: z.string(),
+});
+export type TaskExecutionLog = z.infer<typeof TaskExecutionLogSchema>;
+
+export const TaskExecutionLogViewSchema = z.object({
+  history: z.array(z.lazy(() => TaskExecutionLogSchema)),
+  settings: z.lazy(() => TaskLogSettingsSchema),
+});
+export type TaskExecutionLogView = z.infer<typeof TaskExecutionLogViewSchema>;
+
+export const TaskExecutionStepSchema = z.object({
+  error: z.string(),
+  status: z.string(),
+  target: z.string(),
+});
+export type TaskExecutionStep = z.infer<typeof TaskExecutionStepSchema>;
+
+export const TaskLogSettingsSchema = z.object({
+  retentionDays: z.number().int().min(1).max(365),
+});
+export type TaskLogSettings = z.infer<typeof TaskLogSettingsSchema>;
+
 export const TrafficSchema = z.object({
   Down: z.number().int(),
   IsInbound: z.boolean(),
@@ -1190,6 +1232,7 @@ export const XrayRestartRunSchema = z.object({
   error: z.string(),
   startedAt: z.number().int(),
   status: z.string(),
+  steps: z.array(z.lazy(() => TaskExecutionStepSchema)).optional(),
   trigger: z.string(),
 });
 export type XrayRestartRun = z.infer<typeof XrayRestartRunSchema>;
@@ -1197,6 +1240,7 @@ export type XrayRestartRun = z.infer<typeof XrayRestartRunSchema>;
 export const XrayRestartScheduleSchema = z.object({
   cron: z.string(),
   enabled: z.boolean(),
+  restartOutbounds: z.array(z.string()).optional(),
   timezone: z.string(),
 });
 export type XrayRestartSchedule = z.infer<typeof XrayRestartScheduleSchema>;
@@ -1205,6 +1249,7 @@ export const XrayRestartScheduleViewSchema = z.object({
   config: z.lazy(() => XrayRestartScheduleSchema),
   history: z.array(z.lazy(() => XrayRestartRunSchema)),
   nextRun: z.number().int(),
+  outboundTags: z.array(z.string()),
   running: z.boolean(),
 });
 export type XrayRestartScheduleView = z.infer<typeof XrayRestartScheduleViewSchema>;

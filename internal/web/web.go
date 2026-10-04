@@ -552,6 +552,8 @@ func (s *Server) start(restartXray bool, startTgBot bool) (err error) {
 	if err := s.xrayScheduler.Restore(); err != nil {
 		logger.Warning("restore Xray restart schedule: ", err)
 	}
+	geoMonitor := service.NewGeodataExecutionMonitor()
+	s.cron.Schedule(cron.Every(time.Second), cron.FuncJob(geoMonitor.Poll))
 
 	// Wire the inbound-runtime manager once so InboundService can route
 	// add/update/delete to either the local xray or a remote node panel.

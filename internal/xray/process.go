@@ -307,6 +307,10 @@ func (p *Process) GetConfig() *Config {
 	return p.config
 }
 
+func (p *Process) GeodataEvents(after uint64) []GeodataEvent {
+	return p.logWriter.GeodataEvents(after)
+}
+
 // SetConfig replaces the stored configuration snapshot after the running
 // process has been reconciled with it through the gRPC API (hot apply), so
 // later change detection compares against what is actually running.
@@ -638,11 +642,40 @@ func (p *process) Start() (err error) {
 		return common.NewErrorf("Failed to write configuration file: %v", err)
 	}
 
+	runtimeData, geoWriter, err := p.logWriter.prepareGeodataLogging(data)
+	if err != nil {
+		return err
+	}
+	cleanup := func() {}
+	if geoWriter != nil {
+		// Keep persisted settings unchanged; the private config enables observation only.
+		file, err := os.CreateTemp(filepath.Dir(configPath), ".config-geodata-*.json")
+		if err != nil {
+			_ = geoWriter.Close()
+			return err
+		}
+		runtimePath := file.Name()
+		cleanup = func() { _ = geoWriter.Close(); _ = os.Remove(runtimePath) }
+		if err = file.Chmod(0o600); err == nil {
+			_, err = file.Write(runtimeData)
+		}
+		closeErr := file.Close()
+		if err == nil {
+			err = closeErr
+		}
+		if err != nil {
+			cleanup()
+			return err
+		}
+		configPath = runtimePath
+	}
 	cmd := exec.CommandContext(context.Background(), GetBinaryPath(), "-c", configPath)
-	cmd.Stdout = p.logWriter
-	cmd.Stderr = p.logWriter
+	cmd.Stdout, cmd.Stderr = p.logWriter, p.logWriter
+	if geoWriter != nil {
+		cmd.Stdout, cmd.Stderr = geoWriter, geoWriter
+	}
 
-	err = p.startCommand(cmd)
+	err = p.startCommand(cmd, cleanup)
 	if err != nil {
 		return err
 	}
@@ -701,7 +734,12 @@ func writeFileAtomic(path string, data []byte, perm os.FileMode) (err error) {
 
 var renameFile = os.Rename
 
-func (p *process) startCommand(cmd *exec.Cmd) error {
+func (p *process) startCommand(cmd *exec.Cmd, cleanups ...func()) error {
+	cleanup := func() {
+		for _, fn := range cleanups {
+			fn()
+		}
+	}
 	p.mu.Lock()
 	p.cmd = cmd
 	p.done = make(chan struct{})
@@ -711,6 +749,7 @@ func (p *process) startCommand(cmd *exec.Cmd) error {
 	p.intentionalStop.Store(false)
 
 	if err := cmd.Start(); err != nil {
+		cleanup()
 		close(done)
 		p.mu.Lock()
 		p.cmd = nil
@@ -720,7 +759,7 @@ func (p *process) startCommand(cmd *exec.Cmd) error {
 
 	attachChildLifetime(cmd)
 
-	go p.waitForCommand(cmd, done)
+	go p.waitForCommand(cmd, done, cleanup)
 	return nil
 }
 
@@ -730,8 +769,13 @@ func (p *process) setExitErr(err error) {
 	p.mu.Unlock()
 }
 
-func (p *process) waitForCommand(cmd *exec.Cmd, done chan struct{}) {
+func (p *process) waitForCommand(cmd *exec.Cmd, done chan struct{}, cleanups ...func()) {
 	defer close(done)
+	defer func() {
+		for _, fn := range cleanups {
+			fn()
+		}
+	}()
 
 	err := cmd.Wait()
 	p.logWriter.Flush()

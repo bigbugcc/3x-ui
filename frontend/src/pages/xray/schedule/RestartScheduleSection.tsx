@@ -6,19 +6,18 @@ import { XrayRestartScheduleSchema } from '@/generated/zod';
 import {
   Alert,
   Button,
+  Checkbox,
+  Collapse,
   Form,
   Modal,
   Space,
   Spin,
   Switch,
-  Table,
-  Tag,
   Typography,
   message,
 } from 'antd';
 
 import { useXrayRestartSchedule } from '@/api/queries/useXraySchedule';
-import type { XrayRestartRun } from '@/generated/types';
 import ScheduleEditor, { formatScheduleTime } from './ScheduleEditor';
 
 export default function RestartScheduleSection() {
@@ -117,6 +116,31 @@ export default function RestartScheduleSection() {
               <Typography.Paragraph type="secondary">
                 {t('pages.xray.schedule.manualStopHint')}
               </Typography.Paragraph>
+              <Collapse
+                className="mb-12"
+                items={[
+                  {
+                    key: 'outbounds',
+                    label: t('pages.xray.schedule.additionalRestart'),
+                    children: (
+                      <FormField
+                        name="restartOutbounds"
+                        extra={t('pages.xray.schedule.additionalRestartHint')}
+                      >
+                        <Checkbox.Group
+                          disabled={busy}
+                          options={Array.from(
+                            new Set([
+                              ...(view?.outboundTags ?? []),
+                              ...(config.restartOutbounds ?? []),
+                            ]),
+                          ).map((tag) => ({ label: tag, value: tag }))}
+                        />
+                      </FormField>
+                    ),
+                  },
+                ]}
+              />
               <Space wrap>
                 <Button
                   type="primary"
@@ -133,49 +157,6 @@ export default function RestartScheduleSection() {
           </FormProvider>
         )}
       </Spin>
-      <Typography.Title level={5}>{t('pages.xray.schedule.history')}</Typography.Title>
-      <Table<XrayRestartRun>
-        size="small"
-        scroll={{ x: 600 }}
-        dataSource={view?.history ?? []}
-        rowKey={(record) => `${record.startedAt}-${record.trigger}`}
-        pagination={{ pageSize: 10 }}
-        columns={[
-          {
-            title: t('pages.xray.schedule.startedAt'),
-            dataIndex: 'startedAt',
-            render: (value: number) => formatScheduleTime(value, view?.config.timezone ?? 'UTC'),
-          },
-          {
-            title: t('pages.xray.schedule.trigger'),
-            dataIndex: 'trigger',
-            render: (value: string) => t(`pages.xray.schedule.${value}`),
-          },
-          {
-            title: t('pages.xray.schedule.result'),
-            dataIndex: 'status',
-            render: (value: string) => (
-              <Tag
-                color={value === 'success' ? 'success' : value === 'failed' ? 'error' : 'default'}
-              >
-                {t(`pages.xray.schedule.${value}`)}
-              </Tag>
-            ),
-          },
-          {
-            title: t('pages.xray.schedule.duration'),
-            dataIndex: 'durationMs',
-            render: (value: number) => `${value} ms`,
-          },
-          {
-            title: t('pages.xray.schedule.details'),
-            render: (_: unknown, record: XrayRestartRun) =>
-              record.status === 'skipped'
-                ? t('pages.xray.schedule.skippedHint')
-                : record.error || '—',
-          },
-        ]}
-      />
     </div>
   );
 }

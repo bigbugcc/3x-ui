@@ -2559,6 +2559,36 @@ export const SCHEMAS: Record<string, unknown> = {
     ],
     "type": "object"
   },
+  "GeodataHashComparison": {
+    "properties": {
+      "baselineAt": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "currentHash": {
+        "type": "string"
+      },
+      "error": {
+        "type": "string"
+      },
+      "file": {
+        "example": "geosite.dat",
+        "type": "string"
+      },
+      "previousHash": {
+        "type": "string"
+      },
+      "status": {
+        "example": "changed",
+        "type": "string"
+      }
+    },
+    "required": [
+      "file",
+      "status"
+    ],
+    "type": "object"
+  },
   "GeodataScheduleView": {
     "properties": {
       "applied": {
@@ -4709,6 +4739,110 @@ export const SCHEMAS: Record<string, unknown> = {
     ],
     "type": "object"
   },
+  "TaskExecutionLog": {
+    "properties": {
+      "details": {
+        "type": "string"
+      },
+      "durationMs": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "error": {
+        "type": "string"
+      },
+      "hashComparisons": {
+        "items": {
+          "$ref": "#/components/schemas/GeodataHashComparison"
+        },
+        "type": "array"
+      },
+      "id": {
+        "type": "string"
+      },
+      "startedAt": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "status": {
+        "type": "string"
+      },
+      "steps": {
+        "items": {
+          "$ref": "#/components/schemas/TaskExecutionStep"
+        },
+        "type": "array"
+      },
+      "task": {
+        "type": "string"
+      },
+      "trigger": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "details",
+      "durationMs",
+      "error",
+      "id",
+      "startedAt",
+      "status",
+      "task",
+      "trigger"
+    ],
+    "type": "object"
+  },
+  "TaskExecutionLogView": {
+    "properties": {
+      "history": {
+        "items": {
+          "$ref": "#/components/schemas/TaskExecutionLog"
+        },
+        "type": "array"
+      },
+      "settings": {
+        "$ref": "#/components/schemas/TaskLogSettings"
+      }
+    },
+    "required": [
+      "history",
+      "settings"
+    ],
+    "type": "object"
+  },
+  "TaskExecutionStep": {
+    "properties": {
+      "error": {
+        "type": "string"
+      },
+      "status": {
+        "type": "string"
+      },
+      "target": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "error",
+      "status",
+      "target"
+    ],
+    "type": "object"
+  },
+  "TaskLogSettings": {
+    "properties": {
+      "retentionDays": {
+        "example": 30,
+        "maximum": 365,
+        "minimum": 1,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "retentionDays"
+    ],
+    "type": "object"
+  },
   "Traffic": {
     "description": "Traffic represents network traffic statistics for Xray connections.\nIt tracks upload and download bytes for inbound or outbound traffic.",
     "properties": {
@@ -4853,6 +4987,12 @@ export const SCHEMAS: Record<string, unknown> = {
       "status": {
         "type": "string"
       },
+      "steps": {
+        "items": {
+          "$ref": "#/components/schemas/TaskExecutionStep"
+        },
+        "type": "array"
+      },
       "trigger": {
         "type": "string"
       }
@@ -4874,6 +5014,12 @@ export const SCHEMAS: Record<string, unknown> = {
       },
       "enabled": {
         "type": "boolean"
+      },
+      "restartOutbounds": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
       },
       "timezone": {
         "type": "string"
@@ -4901,6 +5047,12 @@ export const SCHEMAS: Record<string, unknown> = {
         "format": "int64",
         "type": "integer"
       },
+      "outboundTags": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
       "running": {
         "type": "boolean"
       }
@@ -4909,6 +5061,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "config",
       "history",
       "nextRun",
+      "outboundTags",
       "running"
     ],
     "type": "object"

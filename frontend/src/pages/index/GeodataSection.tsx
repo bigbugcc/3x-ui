@@ -178,7 +178,9 @@ export default function GeodataSection({ active, onBusy, onClose, saveDisabled }
             </Typography.Paragraph>
             <Space orientation="vertical" style={{ width: '100%' }} size={8}>
               {config.assets.length === 0 && (
-                <Typography.Text type="secondary">{t('pages.index.geodataEmpty')}</Typography.Text>
+                <Typography.Text type="secondary">
+                  {t('pages.xray.schedule.geoReloadOnlyHint')}
+                </Typography.Text>
               )}
               {config.assets.map((row, index) => (
                 <Space.Compact key={index} style={{ width: '100%' }}>

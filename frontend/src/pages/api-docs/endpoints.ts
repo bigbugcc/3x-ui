@@ -2429,6 +2429,13 @@ export const sections: readonly Section[] = [
           { name: 'enabled', in: 'body (json)', type: 'boolean' },
           { name: 'cron', in: 'body (json)', type: 'string' },
           { name: 'timezone', in: 'body (json)', type: 'string' },
+          {
+            name: 'restartOutbounds',
+            in: 'body (json)',
+            type: 'string[]',
+            optional: true,
+            desc: 'Configured outbound tags to recreate after the core restart (for example WARP, NordVPN and PIA).',
+          },
         ],
         responseSchema: 'XrayRestartScheduleView',
       },
@@ -2447,8 +2454,37 @@ export const sections: readonly Section[] = [
         summary:
           'Read the Geo update plan, next scheduled time, standard sources and download outbounds.',
         description:
-          'Imports existing geodata configuration. Geo execution results remain in the Xray log.',
+          'Imports existing geodata configuration. Execution observations are recorded in the shared schedule logs without replacing the native hot-reload job.',
         responseSchema: 'GeodataScheduleView',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/xray/schedule/logs',
+        summary: 'Read shared Xray restart and Geo execution records and retention settings.',
+        description:
+          'Legacy restart history is imported once. Geo records use native execution events to report completed reloads, committed downloads, and failures. Successful downloads include per-file SHA-256 comparisons against the last confirmed successful snapshot: baseline, changed, unchanged, or unavailable. Baselines persist independently of log retention and clearing. Manual file edits between runs count as changes. Hash-read failures do not change the execution result. With no assets configured, a successful run reloads existing databases only. Interrupted or incomplete results remain unconfirmed. Expired records are pruned; at most 5,000 records are retained.',
+        responseSchema: 'TaskExecutionLogView',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/xray/schedule/logs/settings',
+        summary: 'Save execution-log retention and remove expired records.',
+        params: [
+          {
+            name: 'retentionDays',
+            in: 'body (json)',
+            type: 'integer',
+            desc: 'Whole number from 1 to 365; default 30 days.',
+          },
+        ],
+        responseSchema: 'TaskExecutionLogView',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/xray/schedule/logs/clear',
+        summary: 'Clear shared execution records while preserving schedule and retention settings.',
+        description: 'Running tasks may write their final result after clearing.',
+        responseSchema: 'TaskExecutionLogView',
       },
       {
         method: 'POST',

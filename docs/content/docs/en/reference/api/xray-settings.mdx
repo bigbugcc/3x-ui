@@ -84,6 +84,15 @@ _openapi:
         download outbounds.
       url: '#read-the-geo-update-plan-next-scheduled-time-standard-sources-and-download-outbounds'
     - depth: 2
+      title: Read shared Xray restart and Geo execution records and retention settings.
+      url: '#read-shared-xray-restart-and-geo-execution-records-and-retention-settings'
+    - depth: 2
+      title: Save execution-log retention and remove expired records.
+      url: '#save-execution-log-retention-and-remove-expired-records'
+    - depth: 2
+      title: Clear shared execution records while preserving schedule and retention settings.
+      url: '#clear-shared-execution-records-while-preserving-schedule-and-retention-settings'
+    - depth: 2
       title: Patch only the Geo update plan in the latest Xray template and apply it
         to a running core.
       url: '#patch-only-the-geo-update-plan-in-the-latest-xray-template-and-apply-it-to-a-running-core'
@@ -199,6 +208,12 @@ _openapi:
       - content: Read the Geo update plan, next scheduled time, standard sources and
           download outbounds.
         id: read-the-geo-update-plan-next-scheduled-time-standard-sources-and-download-outbounds
+      - content: Read shared Xray restart and Geo execution records and retention settings.
+        id: read-shared-xray-restart-and-geo-execution-records-and-retention-settings
+      - content: Save execution-log retention and remove expired records.
+        id: save-execution-log-retention-and-remove-expired-records
+      - content: Clear shared execution records while preserving schedule and retention settings.
+        id: clear-shared-execution-records-while-preserving-schedule-and-retention-settings
       - content: Patch only the Geo update plan in the latest Xray template and apply it
           to a running core.
         id: patch-only-the-geo-update-plan-in-the-latest-xray-template-and-apply-it-to-a-running-core
@@ -270,7 +285,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <OpenAPIPage document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/xray/","method":"post"},{"path":"/panel/api/xray/getDefaultJsonConfig","method":"get"},{"path":"/panel/api/xray/getOutboundsTraffic","method":"get"},{"path":"/panel/api/xray/getXrayResult","method":"get"},{"path":"/panel/api/xray/update","method":"post"},{"path":"/panel/api/xray/warp/{action}","method":"post"},{"path":"/panel/api/xray/nord/{action}","method":"post"},{"path":"/panel/api/xray/pia/{action}","method":"post"},{"path":"/panel/api/xray/resetOutboundsTraffic","method":"post"},{"path":"/panel/api/xray/testOutbound","method":"post"},{"path":"/panel/api/xray/testOutbounds","method":"post"},{"path":"/panel/api/xray/balancerStatus","method":"post"},{"path":"/panel/api/xray/balancerOverride","method":"post"},{"path":"/panel/api/xray/routeTest","method":"post"},{"path":"/panel/api/xray/schedule/restart","method":"get"},{"path":"/panel/api/xray/schedule/restart","method":"post"},{"path":"/panel/api/xray/schedule/restart/run","method":"post"},{"path":"/panel/api/xray/schedule/geodata","method":"get"},{"path":"/panel/api/xray/schedule/geodata","method":"post"},{"path":"/panel/api/xray/geodata/files","method":"get"},{"path":"/panel/api/xray/geodata/categories","method":"get"},{"path":"/panel/api/xray/geodata/entries","method":"get"},{"path":"/panel/api/xray/geodata/validate","method":"post"},{"path":"/panel/api/xray/outbound-subs","method":"get"},{"path":"/panel/api/xray/outbound-subs","method":"post"},{"path":"/panel/api/xray/outbound-subs/{id}","method":"post"},{"path":"/panel/api/xray/outbound-subs/{id}","method":"delete"},{"path":"/panel/api/xray/outbound-subs/{id}/del","method":"post"},{"path":"/panel/api/xray/outbound-subs/{id}/refresh","method":"post"},{"path":"/panel/api/xray/outbound-subs/{id}/move","method":"post"},{"path":"/panel/api/xray/outbound-subs/parse","method":"post"}]} showTitle />
+      <OpenAPIPage document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/xray/","method":"post"},{"path":"/panel/api/xray/getDefaultJsonConfig","method":"get"},{"path":"/panel/api/xray/getOutboundsTraffic","method":"get"},{"path":"/panel/api/xray/getXrayResult","method":"get"},{"path":"/panel/api/xray/update","method":"post"},{"path":"/panel/api/xray/warp/{action}","method":"post"},{"path":"/panel/api/xray/nord/{action}","method":"post"},{"path":"/panel/api/xray/pia/{action}","method":"post"},{"path":"/panel/api/xray/resetOutboundsTraffic","method":"post"},{"path":"/panel/api/xray/testOutbound","method":"post"},{"path":"/panel/api/xray/testOutbounds","method":"post"},{"path":"/panel/api/xray/balancerStatus","method":"post"},{"path":"/panel/api/xray/balancerOverride","method":"post"},{"path":"/panel/api/xray/routeTest","method":"post"},{"path":"/panel/api/xray/schedule/restart","method":"get"},{"path":"/panel/api/xray/schedule/restart","method":"post"},{"path":"/panel/api/xray/schedule/restart/run","method":"post"},{"path":"/panel/api/xray/schedule/geodata","method":"get"},{"path":"/panel/api/xray/schedule/logs","method":"get"},{"path":"/panel/api/xray/schedule/logs/settings","method":"post"},{"path":"/panel/api/xray/schedule/logs/clear","method":"post"},{"path":"/panel/api/xray/schedule/geodata","method":"post"},{"path":"/panel/api/xray/geodata/files","method":"get"},{"path":"/panel/api/xray/geodata/categories","method":"get"},{"path":"/panel/api/xray/geodata/entries","method":"get"},{"path":"/panel/api/xray/geodata/validate","method":"post"},{"path":"/panel/api/xray/outbound-subs","method":"get"},{"path":"/panel/api/xray/outbound-subs","method":"post"},{"path":"/panel/api/xray/outbound-subs/{id}","method":"post"},{"path":"/panel/api/xray/outbound-subs/{id}","method":"delete"},{"path":"/panel/api/xray/outbound-subs/{id}/del","method":"post"},{"path":"/panel/api/xray/outbound-subs/{id}/refresh","method":"post"},{"path":"/panel/api/xray/outbound-subs/{id}/move","method":"post"},{"path":"/panel/api/xray/outbound-subs/parse","method":"post"}]} showTitle />
     </>
   );
 }
