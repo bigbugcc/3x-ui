@@ -169,6 +169,9 @@ func (s *Subscriber) formatMessage(e eventbus.Event) (subject, body string) {
 			if data.Status == "success" {
 				subject = host + " " + i18n("tgbot.messages.loginSuccess")
 				content := kv(i18n("email.labelStatus"), `<span style="color:green">`+i18n("email.statusSuccess")+`</span>`)
+				if data.Method != "" {
+					content += kv(i18n("passkey.loginMethod"), data.Method)
+				}
 				content += kv(i18n("email.labelUsername"), data.Username)
 				content += kv(i18n("email.labelIP"), data.IP)
 				body = wrap(i18n("tgbot.messages.loginSuccess"), content)

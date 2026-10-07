@@ -30,6 +30,7 @@ import SponsorSlot from '@/components/sponsor/SponsorSlot';
 import { pauseAnimationsUntilLeave, useTheme } from '@/hooks/useTheme';
 import { LoginFormSchema, TwoFactorCodeSchema, type LoginFormValues } from '@/schemas/login';
 import './LoginPage.css';
+import PasskeyLogin from './PasskeyLogin';
 
 const HEADLINE_INTERVAL_MS = 2000;
 
@@ -48,6 +49,7 @@ export default function LoginPage() {
 
   const [fetched, setFetched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
   const [twoFactorEnable, setTwoFactorEnable] = useState(false);
   const [headlineIndex, setHeadlineIndex] = useState(0);
   const methods = useForm<LoginForm>({
@@ -77,15 +79,19 @@ export default function LoginPage() {
     };
   }, []);
 
-  const onSubmit = useCallback(async (values: LoginForm) => {
-    setSubmitting(true);
-    try {
-      const msg = await HttpUtil.post('/login', values);
-      if (msg.success) window.location.href = basePath + 'panel/';
-    } finally {
-      setSubmitting(false);
-    }
-  }, []);
+  const onSubmit = useCallback(
+    async (values: LoginForm) => {
+      if (passkeyBusy || submitting) return;
+      setSubmitting(true);
+      try {
+        const msg = await HttpUtil.post('/login', values);
+        if (msg.success) window.location.href = basePath + 'panel/';
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [passkeyBusy, submitting],
+  );
 
   const onLangChange = useCallback((next: string) => {
     setLang(next);
@@ -240,6 +246,7 @@ export default function LoginPage() {
                         type="primary"
                         htmlType="submit"
                         loading={submitting}
+                        disabled={passkeyBusy}
                         size="large"
                         block
                       >
@@ -248,6 +255,7 @@ export default function LoginPage() {
                     </Form.Item>
                   </Form>
                 </FormProvider>
+                <PasskeyLogin passwordBusy={submitting} onBusyChange={setPasskeyBusy} />
                 <SponsorSlot slot="login" variant="compact" className="login-sponsor" />
               </div>
             )}

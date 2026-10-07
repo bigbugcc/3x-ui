@@ -24,6 +24,7 @@ export interface HttpOptions {
   signal?: AbortSignal;
   silent?: boolean;
   silentSuccess?: boolean;
+  throwOnError?: boolean;
 }
 
 export interface HttpModal {
@@ -72,13 +73,14 @@ export class HttpUtil {
     params?: unknown,
     options: HttpOptions = {},
   ): Promise<Msg<T>> {
-    const { silent, silentSuccess, ...rest } = options;
+    const { silent, silentSuccess, throwOnError, ...rest } = options;
     try {
       const resp = await httpRequest('GET', url, undefined, { ...rest, params });
       const msg = this._respToMsg(resp) as Msg<T>;
       if (!silent) this._handleMsg(msg, silentSuccess);
       return msg;
     } catch (error) {
+      if (throwOnError) throw error;
       const err = error as {
         response?: { data?: { msg?: string; message?: string } };
         message?: string;
@@ -101,13 +103,14 @@ export class HttpUtil {
     data?: unknown,
     options: HttpOptions = {},
   ): Promise<Msg<T>> {
-    const { silent, silentSuccess, ...rest } = options;
+    const { silent, silentSuccess, throwOnError, ...rest } = options;
     try {
       const resp = await httpRequest('POST', url, data, rest);
       const msg = this._respToMsg(resp) as Msg<T>;
       if (!silent) this._handleMsg(msg, silentSuccess);
       return msg;
     } catch (error) {
+      if (throwOnError) throw error;
       const err = error as {
         response?: { data?: { msg?: string; message?: string } };
         message?: string;

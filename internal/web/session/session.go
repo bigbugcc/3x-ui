@@ -25,10 +25,14 @@ func init() {
 }
 
 func SetLoginUser(c *gin.Context, user *model.User) error {
+	if database.AuthenticationSuspended.Load() {
+		return http.ErrServerClosed
+	}
 	if user == nil {
 		return nil
 	}
 	s := sessions.Default(c)
+	s.Delete(csrfTokenKey)
 	s.Set(loginUserKey, user.Id)
 	s.Set(loginEpochKey, user.LoginEpoch)
 	return s.Save()
@@ -42,10 +46,21 @@ func SetAPIAuthUser(c *gin.Context, user *model.User) {
 }
 
 func GetLoginUser(c *gin.Context) *model.User {
+	if database.AuthenticationSuspended.Load() {
+		return nil
+	}
 	if v, ok := c.Get(apiAuthUserKey); ok {
 		if u, ok2 := v.(*model.User); ok2 {
 			return u
 		}
+	}
+	return GetBrowserLoginUser(c)
+}
+
+// GetBrowserLoginUser never accepts the API token or mTLS identity shortcut.
+func GetBrowserLoginUser(c *gin.Context) *model.User {
+	if database.AuthenticationSuspended.Load() {
+		return nil
 	}
 	s := sessions.Default(c)
 	obj := s.Get(loginUserKey)
@@ -75,6 +90,9 @@ func GetLoginUser(c *gin.Context) *model.User {
 		if saveErr := s.Save(); saveErr != nil {
 			logger.Warning("session: failed to drop missing user:", saveErr)
 		}
+		return nil
+	}
+	if database.AuthenticationSuspended.Load() {
 		return nil
 	}
 	if !sessionEpochMatches(s.Get(loginEpochKey), user.LoginEpoch) {
@@ -166,7 +184,7 @@ func ClearSession(c *gin.Context) error {
 	if cookiePath == "" {
 		cookiePath = "/"
 	}
-	secure := c.Request.TLS != nil
+	secure := c.Request.TLS != nil || c.GetBool("session_secure")
 	s.Options(sessions.Options{
 		Path:     cookiePath,
 		MaxAge:   -1,

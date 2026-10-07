@@ -312,6 +312,9 @@ func (s *Subscriber) FormatEmbed(e eventbus.Event) (Embed, bool) {
 					cleanField(tr("username"), data.Username, true),
 					cleanField("IP", data.IP, true),
 				}
+				if data.Method != "" {
+					fields = append(fields, cleanField(tr("passkey.loginMethod"), data.Method, true))
+				}
 				if data.Time != "" {
 					fields = append(fields, cleanField(tr("discord.fields.time"), data.Time, true))
 				}

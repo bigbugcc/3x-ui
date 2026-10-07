@@ -8,6 +8,7 @@ import { SettingListItem } from '@/components/ui';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { catTabLabel } from './catTabLabel';
 import TwoFactorModal from './TwoFactorModal';
+import PasskeySection from './PasskeySection';
 import './SecurityTab.css';
 
 interface ApiMsg<T = unknown> {
@@ -26,6 +27,8 @@ interface ApiTokenRow {
 }
 
 interface SecurityTabProps {
+  activeKey?: string;
+  onTabChange?: (key: string) => void;
   allSetting: AllSetting;
   updateSetting: (patch: Partial<AllSetting>) => void;
   saveSetting: (payload: Partial<AllSetting> & Record<string, unknown>) => Promise<unknown>;
@@ -57,7 +60,13 @@ const TFA_INITIAL: TfaState = {
   onConfirm: () => {},
 };
 
-export default function SecurityTab({ allSetting, updateSetting, saveSetting }: SecurityTabProps) {
+export default function SecurityTab({
+  allSetting,
+  updateSetting,
+  saveSetting,
+  activeKey,
+  onTabChange,
+}: SecurityTabProps) {
   const { t } = useTranslation();
   const { isMobile } = useMediaQuery();
   const [modal, modalContextHolder] = Modal.useModal();
@@ -264,6 +273,8 @@ export default function SecurityTab({ allSetting, updateSetting, saveSetting }: 
       {modalContextHolder}
       <Tabs
         defaultActiveKey="1"
+        activeKey={activeKey}
+        onChange={onTabChange}
         items={[
           {
             key: '1',
@@ -326,6 +337,11 @@ export default function SecurityTab({ allSetting, updateSetting, saveSetting }: 
           },
           {
             key: '3',
+            label: catTabLabel(<SafetyOutlined />, t('passkey.title'), isMobile),
+            children: <PasskeySection />,
+          },
+          {
+            key: '4',
             label: catTabLabel(<ApiOutlined />, t('pages.nodes.apiToken'), isMobile),
             children: (
               <div className="api-token-section">

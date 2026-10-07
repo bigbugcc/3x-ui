@@ -1691,7 +1691,7 @@ func (s *ServerService) GetMigration() ([]byte, string, error) {
 // uses towards its nodes. An import that overwrites them leaves the
 // destination unreachable on its own address, or impersonating the source.
 var hostBoundSettingKeys = []string{
-	"webListen", "webDomain", "webPort", "webCertFile", "webKeyFile", "webBasePath",
+	"webListen", "webDomain", "webPort", "webCertFile", "webKeyFile", "webBasePath", "trustedProxyCIDRs",
 	"subListen", "subDomain", "subPort", "subCertFile", "subKeyFile", "subURI", "subJsonURI",
 	"secret", "panelGuid",
 	"nodeMtlsCaCertPem", "nodeMtlsCaKeyPem", "nodeMtlsClientCertPem",
@@ -1770,8 +1770,30 @@ var lazilyMintedSettingKeys = map[string]bool{
 }
 
 func (s *ServerService) ImportDB(file multipart.File, keepHostSettings bool) error {
+	AuthenticationStateMu.Lock()
+	defer AuthenticationStateMu.Unlock()
+	if database.AuthenticationSuspended.Load() {
+		return errors.New("authentication recovery is pending; restart the panel before importing again")
+	}
+	var keptPasskey model.PasskeyConfig
+	var keptProxy string
+	if keepHostSettings {
+		err := database.GetDB().First(&keptPasskey, 1).Error
+		if err != nil && !database.IsNotFound(err) {
+			return err
+		}
+		keptProxy, err = s.settingService.GetTrustedProxyCIDRs()
+		if err != nil {
+			return err
+		}
+	}
+	restore := authenticationRestore{Version: 1, KeepHost: keepHostSettings, Passkey: keptPasskey, Proxy: keptProxy}
+	return s.importDB(file, keepHostSettings, restore.finalize, restore.prepare)
+}
+
+func (s *ServerService) importDB(file multipart.File, keepHostSettings bool, finalize, prepare func() error) error {
 	if database.IsPostgres() {
-		return s.importPostgresDB(file, keepHostSettings)
+		return s.importPostgresDB(file, keepHostSettings, finalize, prepare)
 	}
 	kind, err := sniffUploadKind(file)
 	if err != nil {
@@ -1828,6 +1850,9 @@ func (s *ServerService) ImportDB(file multipart.File, keepHostSettings bool) err
 		keptSettings = captureHostBoundSettings()
 	}
 
+	if err := prepare(); err != nil {
+		return err
+	}
 	if errClose := database.CloseDB(); errClose != nil {
 		logger.Warningf("Failed to close existing DB before replacement: %v", errClose)
 	}
@@ -1884,6 +1909,10 @@ func (s *ServerService) ImportDB(file multipart.File, keepHostSettings bool) err
 	dbReopened = true
 
 	restoreHostBoundSettings(keptSettings)
+
+	if err := finalize(); err != nil {
+		return err
+	}
 
 	s.inboundService.MigrateDB()
 
@@ -2039,24 +2068,24 @@ func sniffUploadKind(file multipart.File) (int, error) {
 	return sniffImportKind(header[:n]), nil
 }
 
-func (s *ServerService) importPostgresDB(file multipart.File, keepHostSettings bool) error {
+func (s *ServerService) importPostgresDB(file multipart.File, keepHostSettings bool, finalize, prepare func() error) error {
 	kind, err := sniffUploadKind(file)
 	if err != nil {
 		return common.NewErrorf("Error reading uploaded file: %v", err)
 	}
 	switch kind {
 	case importKindPgDump:
-		return s.restorePostgresDump(file, keepHostSettings)
+		return s.restorePostgresDump(file, keepHostSettings, finalize, prepare)
 	case importKindSQLiteDB:
-		return s.migrateSQLiteIntoPostgres(file, false)
+		return s.migrateSQLiteIntoPostgres(file, false, finalize, prepare)
 	case importKindSQLiteDump:
-		return s.migrateSQLiteIntoPostgres(file, true)
+		return s.migrateSQLiteIntoPostgres(file, true, finalize, prepare)
 	default:
 		return common.NewError("Invalid file: expected a PostgreSQL custom-format dump (.dump) from this panel's Back Up, a SQLite database (.db), or a SQLite migration dump")
 	}
 }
 
-func (s *ServerService) restorePostgresDump(file multipart.File, keepHostSettings bool) error {
+func (s *ServerService) restorePostgresDump(file multipart.File, keepHostSettings bool, finalize, prepare func() error) error {
 	bin, err := exec.LookPath("pg_restore")
 	if err != nil {
 		return common.NewError("pg_restore not found on the server; install the postgresql-client package to restore a PostgreSQL database")
@@ -2101,6 +2130,9 @@ func (s *ServerService) restorePostgresDump(file multipart.File, keepHostSetting
 		keptSettings = captureHostBoundSettings()
 	}
 
+	if err := prepare(); err != nil {
+		return err
+	}
 	if errClose := database.CloseDB(); errClose != nil {
 		logger.Warningf("Failed to close existing DB before restore: %v", errClose)
 	}
@@ -2119,11 +2151,14 @@ func (s *ServerService) restorePostgresDump(file multipart.File, keepHostSetting
 	}
 	restoreHostBoundSettings(keptSettings)
 
-	s.inboundService.MigrateDB()
-
 	if runErr != nil {
 		return common.NewErrorf("pg_restore failed (database left unchanged): %v: %s", runErr, strings.TrimSpace(stderr.String()))
 	}
+
+	if err := finalize(); err != nil {
+		return err
+	}
+	s.inboundService.MigrateDB()
 
 	xrayStopped = false
 	if err := s.RestartXrayService(); err != nil {
@@ -2132,7 +2167,7 @@ func (s *ServerService) restorePostgresDump(file multipart.File, keepHostSetting
 	return nil
 }
 
-func (s *ServerService) migrateSQLiteIntoPostgres(file multipart.File, isSQLDump bool) error {
+func (s *ServerService) migrateSQLiteIntoPostgres(file multipart.File, isSQLDump bool, finalize, prepare func() error) error {
 	tempDir, err := os.MkdirTemp("", "x-ui-pg-migrate-*")
 	if err != nil {
 		return common.NewErrorf("Error creating temporary folder: %v", err)
@@ -2173,6 +2208,9 @@ func (s *ServerService) migrateSQLiteIntoPostgres(file multipart.File, isSQLDump
 		logger.Warningf("Failed to stop Xray before DB restore: %v", errStop)
 	}
 
+	if err := prepare(); err != nil {
+		return err
+	}
 	if errClose := database.CloseDB(); errClose != nil {
 		logger.Warningf("Failed to close existing DB before restore: %v", errClose)
 	}
@@ -2182,11 +2220,14 @@ func (s *ServerService) migrateSQLiteIntoPostgres(file multipart.File, isSQLDump
 	if errInit := database.InitDB(config.GetDBPath()); errInit != nil {
 		return common.NewErrorf("Restore finished but reopening the database failed: %v", errInit)
 	}
-	s.inboundService.MigrateDB()
-
 	if migrateErr != nil {
 		return common.NewErrorf("Importing the SQLite data into PostgreSQL failed: %v; the import runs in a single transaction, so the database was left unchanged", migrateErr)
 	}
+
+	if err := finalize(); err != nil {
+		return err
+	}
+	s.inboundService.MigrateDB()
 
 	xrayStopped = false
 	if err := s.RestartXrayService(); err != nil {

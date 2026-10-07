@@ -1,7 +1,10 @@
 package controller
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -65,6 +68,7 @@ func NewSettingController(g *gin.RouterGroup) *SettingController {
 // initRouter sets up the routes for settings management.
 func (a *SettingController) initRouter(g *gin.RouterGroup) {
 	g = g.Group("/setting")
+	registerPasskeyManagement(g)
 
 	g.POST("/all", a.getAllSetting)
 	g.POST("/defaultSettings", a.getDefaultSettings)
@@ -123,12 +127,59 @@ func (a *SettingController) getFactoryDefaults(c *gin.Context) {
 
 // updateSetting updates all settings with the provided data.
 func (a *SettingController) updateSetting(c *gin.Context) {
+	// Passkey deployment policy has a dedicated, freshly authenticated endpoint.
+	if c.ContentType() == "application/json" {
+		body, err := c.GetRawData()
+		if err != nil {
+			passkeyError(c, 400, "passkey.errors.input")
+			return
+		}
+		c.Request.Body = io.NopCloser(bytes.NewReader(body))
+		var submitted map[string]json.RawMessage
+		if json.Unmarshal(body, &submitted) == nil {
+			for key := range submitted {
+				if strings.HasPrefix(strings.ToLower(key), "passkey") {
+					passkeyError(c, 400, "passkey.errors.dedicatedConfig")
+					return
+				}
+			}
+		}
+	} else {
+		if err := c.Request.ParseForm(); err != nil {
+			passkeyError(c, 400, "passkey.errors.input")
+			return
+		}
+		for key := range c.Request.PostForm {
+			if strings.HasPrefix(strings.ToLower(key), "passkey") {
+				passkeyError(c, 400, "passkey.errors.dedicatedConfig")
+				return
+			}
+		}
+	}
 	form, ok := middleware.BindAndValidate[updateSettingForm](c)
 	if !ok {
 		return
 	}
 	allSetting := &form.AllSetting
+	service.AuthenticationStateMu.Lock()
+	defer service.AuthenticationStateMu.Unlock()
+	if session.GetLoginUser(c) == nil {
+		passkeyError(c, http.StatusUnauthorized, "passkey.errors.session")
+		return
+	}
+	passkeyCfg, err := (&service.PasskeyConfigService{}).Get()
+	if err != nil {
+		passkeyError(c, 503, "passkey.errors.unavailable")
+		return
+	}
+	if passkeyCfg.Version != 0 && allSetting.TrustedProxyCIDRs != passkeyCfg.Config.TrustedProxyCIDRs {
+		passkeyError(c, 400, "passkey.errors.dedicatedConfig")
+		return
+	}
 	oldTwoFactor, twoFactorErr := a.settingService.GetTwoFactorEnable()
+	oldTwoFactorToken, _ := a.settingService.GetTwoFactorToken()
+	submittedTwoFactorToken := strings.TrimSpace(allSetting.TwoFactorToken)
+	twoFactorChanged := oldTwoFactor != allSetting.TwoFactorEnable || (submittedTwoFactorToken != "" && submittedTwoFactorToken != oldTwoFactorToken)
 	oldPanelOutbound, _ := a.settingService.GetPanelOutbound()
 	oldTgEnable, _ := a.settingService.GetTgbotEnabled()
 	oldTgToken, _ := a.settingService.GetTgBotToken()
@@ -150,16 +201,14 @@ func (a *SettingController) updateSetting(c *gin.Context) {
 			}
 		}
 	}
-	err := a.settingService.UpdateAllSetting(allSetting, service.SecretClears{
+	err = a.settingService.UpdateAllSetting(allSetting, service.SecretClears{
 		TgBotToken:      form.ClearTgBotToken,
 		LdapPassword:    form.ClearLdapPassword,
 		SmtpPassword:    form.ClearSmtpPassword,
 		DiscordBotToken: form.ClearDiscordBotToken,
 	})
-	if err == nil && twoFactorErr == nil && !oldTwoFactor && allSetting.TwoFactorEnable {
-		if bumpErr := a.userService.BumpLoginEpoch(); bumpErr != nil {
-			err = bumpErr
-		}
+	if err == nil && twoFactorChanged {
+		defaultPasskeyStore.Clear()
 	}
 	if err == nil && form.PanelOutbound != oldPanelOutbound {
 		// The egress bridge lives in the generated config; reconcile the
@@ -200,6 +249,10 @@ func (a *SettingController) updateUser(c *gin.Context) {
 		return
 	}
 	user := session.GetLoginUser(c)
+	if user == nil {
+		passkeyError(c, http.StatusUnauthorized, "passkey.errors.session")
+		return
+	}
 	if user.Username != form.OldUsername || !crypto.CheckPasswordHash(user.Password, form.OldPassword) {
 		jsonMsg(c, I18nWeb(c, "pages.settings.toasts.modifyUserError"), errors.New(I18nWeb(c, "pages.settings.toasts.originalUserPassIncorrect")))
 		return
@@ -212,11 +265,9 @@ func (a *SettingController) updateUser(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "pages.settings.toasts.modifyUserError"), err)
 		return
 	}
-	err = a.userService.UpdateUser(user.Id, form.NewUsername, form.NewPassword)
+	updated, err := a.userService.UpdateUserAtEpoch(user.Id, form.NewUsername, form.NewPassword, user.LoginEpoch)
 	if err == nil {
-		user.Username = form.NewUsername
-		user.Password, _ = crypto.HashPasswordAsBcrypt(form.NewPassword)
-		if saveErr := session.SetLoginUser(c, user); saveErr != nil {
+		if saveErr := session.SetLoginUser(c, updated); saveErr != nil {
 			err = saveErr
 		}
 	}

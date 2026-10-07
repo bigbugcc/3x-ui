@@ -66,6 +66,9 @@ const (
 func allModels() []any {
 	return []any{
 		&model.User{},
+		&model.PasskeyConfig{},
+		&model.WebAuthnUser{},
+		&model.PasskeyCredential{},
 		&model.Inbound{},
 		&model.OutboundTraffics{},
 		&model.Setting{},

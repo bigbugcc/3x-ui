@@ -988,6 +988,30 @@ export const PanelUpdateStatusSchema = z.object({
 });
 export type PanelUpdateStatus = z.infer<typeof PanelUpdateStatusSchema>;
 
+export const PasskeyConfigViewSchema = z.object({
+  config: z.lazy(() => PasskeySettingsSchema),
+  version: z.number().int(),
+});
+export type PasskeyConfigView = z.infer<typeof PasskeyConfigViewSchema>;
+
+export const PasskeyCredentialSchema = z.object({
+  createdAt: z.number().int(),
+  id: z.number().int(),
+  lastUsedAt: z.number().int(),
+  name: z.string(),
+  rpId: z.string(),
+});
+export type PasskeyCredential = z.infer<typeof PasskeyCredentialSchema>;
+
+export const PasskeySettingsSchema = z.object({
+  enabled: z.boolean(),
+  httpsMode: z.string(),
+  origins: z.array(z.string()),
+  rpId: z.string(),
+  trustedProxyCIDRs: z.string(),
+});
+export type PasskeySettings = z.infer<typeof PasskeySettingsSchema>;
+
 export const PeerActivitySchema = z.object({
   allowedIPs: z.string(),
   down: z.number().int(),

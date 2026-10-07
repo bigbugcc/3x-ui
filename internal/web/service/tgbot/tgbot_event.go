@@ -139,6 +139,9 @@ func (t *Tgbot) formatEventMessage(e eventbus.Event) string {
 		if data, ok := e.Data.(*eventbus.LoginEventData); ok {
 			if data.Status == "success" {
 				msg := t.I18nBot("tgbot.messages.loginSuccess")
+				if data.Method != "" {
+					msg += "\n" + t.I18nBot("passkey.loginMethod") + ": " + data.Method
+				}
 				msg += t.I18nBot("tgbot.messages.hostname", "Hostname=="+host)
 				msg += t.I18nBot("tgbot.messages.username", "Username=="+data.Username)
 				msg += t.I18nBot("tgbot.messages.ip", "IP=="+data.IP)

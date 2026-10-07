@@ -1012,6 +1012,34 @@ export const EXAMPLES: Record<string, unknown> = {
     "runId": "1735689600123456789",
     "state": "success"
   },
+  "PasskeyConfigView": {
+    "config": {
+      "enabled": false,
+      "httpsMode": "",
+      "origins": [
+        ""
+      ],
+      "rpId": "",
+      "trustedProxyCIDRs": ""
+    },
+    "version": 0
+  },
+  "PasskeyCredential": {
+    "createdAt": 0,
+    "id": 0,
+    "lastUsedAt": 0,
+    "name": "",
+    "rpId": ""
+  },
+  "PasskeySettings": {
+    "enabled": false,
+    "httpsMode": "",
+    "origins": [
+      ""
+    ],
+    "rpId": "",
+    "trustedProxyCIDRs": ""
+  },
   "PeerActivity": {
     "allowedIPs": "10.8.1.2/32",
     "down": 4194304,

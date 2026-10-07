@@ -39,6 +39,7 @@ Built as an enhanced fork of the original X-UI project, 3X-UI adds broader proto
 - **Built-in subscription server** — raw, JSON, and Clash output, auto-selected from the client's User-Agent, plus [custom page templates](docs/custom-subscription-templates.md).
 - **Telegram and Discord bots** for remote monitoring and management.
 - **RESTful API** with scoped, optionally expiring tokens and an in-panel API reference.
+- **Passkey administrator login** — device verification, deployment settings, and credential management in Settings → Security → Passkeys. See [setup and recovery](docs/passkey.en.md) ([简体中文](docs/passkey.md)).
 - **Installable panel (PWA)** — pin 3X-UI to a desktop or phone home screen.
 - **Flexible storage** — SQLite (default) or PostgreSQL.
 - **13 UI languages** with dark and light themes.

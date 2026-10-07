@@ -18,6 +18,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/web/locale"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service/discord"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/session"
 )
 
 func TestValidateRegex(t *testing.T) {
@@ -125,6 +126,14 @@ func TestUpdateSettingRequiresCodeToReplaceTwoFactorToken(t *testing.T) {
 
 		gin.SetMode(gin.TestMode)
 		router := gin.New()
+		var user model.User
+		if err := database.GetDB().First(&user).Error; err != nil {
+			t.Fatal(err)
+		}
+		router.Use(func(c *gin.Context) {
+			session.SetAPIAuthUser(c, &user)
+			c.Next()
+		})
 		NewSettingController(router.Group("/panel/api"))
 		req := httptest.NewRequest(http.MethodPost, "/panel/api/setting/update", strings.NewReader(string(payload)))
 		req.Header.Set("Content-Type", "application/json")
