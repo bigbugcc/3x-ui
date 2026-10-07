@@ -95,6 +95,7 @@ export default function SettingsPage() {
   const [entryIsIP] = useState(() => isIp(window.location.hostname));
 
   const [alertVisible, setAlertVisible] = useState(true);
+  const [securityTab, setSecurityTab] = useState('1');
   const location = useLocation();
   const slug = location.hash.replace(/^#/, '');
   const activeSlug = tabSlugs.includes(slug) ? slug : 'general';
@@ -210,6 +211,8 @@ export default function SettingsPage() {
       case 'security':
         return (
           <SecurityTab
+            activeKey={securityTab}
+            onTabChange={setSecurityTab}
             allSetting={allSetting}
             updateSetting={updateSetting}
             saveSetting={savePayload}
@@ -230,7 +233,7 @@ export default function SettingsPage() {
       default:
         return <GeneralTab allSetting={allSetting} updateSetting={updateSetting} />;
     }
-  }, [activeSlug, allSetting, updateSetting, savePayload]);
+  }, [activeSlug, allSetting, updateSetting, savePayload, securityTab]);
 
   return (
     <ConfigProvider theme={antdThemeConfig}>
@@ -272,31 +275,33 @@ export default function SettingsPage() {
                   )}
 
                   <Row gutter={[isMobile ? 8 : 16, isMobile ? 0 : 12]}>
-                    <Col span={24}>
-                      <Card hoverable>
-                        <Row className="header-row">
-                          <Col xs={24} sm={10} className="header-actions">
-                            <Space>
-                              <Button type="primary" disabled={saveDisabled} onClick={onSave}>
-                                {t('pages.settings.save')}
-                              </Button>
-                              <Button
-                                type="primary"
-                                danger
-                                disabled={!saveDisabled}
-                                onClick={restartPanel}
-                              >
-                                {t('pages.settings.restartPanel')}
-                              </Button>
-                            </Space>
-                          </Col>
-                          <Col xs={24} sm={14} className="header-info">
-                            <FloatButton.BackTop target={scrollTarget} visibilityHeight={200} />
-                            <Alert type="warning" showIcon title={t('pages.settings.infoDesc')} />
-                          </Col>
-                        </Row>
-                      </Card>
-                    </Col>
+                    {!(activeSlug === 'security' && securityTab === '3') && (
+                      <Col span={24}>
+                        <Card hoverable>
+                          <Row className="header-row">
+                            <Col xs={24} sm={10} className="header-actions">
+                              <Space>
+                                <Button type="primary" disabled={saveDisabled} onClick={onSave}>
+                                  {t('pages.settings.save')}
+                                </Button>
+                                <Button
+                                  type="primary"
+                                  danger
+                                  disabled={!saveDisabled}
+                                  onClick={restartPanel}
+                                >
+                                  {t('pages.settings.restartPanel')}
+                                </Button>
+                              </Space>
+                            </Col>
+                            <Col xs={24} sm={14} className="header-info">
+                              <FloatButton.BackTop target={scrollTarget} visibilityHeight={200} />
+                              <Alert type="warning" showIcon title={t('pages.settings.infoDesc')} />
+                            </Col>
+                          </Row>
+                        </Card>
+                      </Col>
+                    )}
 
                     <Col span={24}>
                       <Card hoverable>{categoryBody}</Card>

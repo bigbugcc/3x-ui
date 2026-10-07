@@ -391,8 +391,16 @@ func getEnv(key, fallback string) string {
 }
 
 func (s *SettingService) ResetSettings() error {
+	AuthenticationStateMu.Lock()
+	defer AuthenticationStateMu.Unlock()
 	db := database.GetDB()
 	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("1 = 1").Delete(&model.PasskeyConfig{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&model.User{}).Where("1 = 1").Update("login_epoch", gorm.Expr("login_epoch + 1")).Error; err != nil {
+			return err
+		}
 		if err := tx.Where("1 = 1").Delete(model.Setting{}).Error; err != nil {
 			return err
 		}
@@ -1683,10 +1691,19 @@ func (s *SettingService) UpdateAllSetting(allSetting *entity.AllSetting, clears 
 		for _, st := range existing {
 			byKey[st.Key] = st
 		}
+		securityChanged := false
 		for _, field := range fields {
 			key := field.Tag.Get("json")
 			fieldV := v.FieldByName(field.Name)
 			value := fmt.Sprint(fieldV.Interface())
+			switch key {
+			case "twoFactorEnable", "twoFactorToken", "webBasePath", "webDomain", "webPort", "webCertFile", "webKeyFile", "trustedProxyCIDRs":
+				previous := defaultValueMap[key]
+				if row := byKey[key]; row != nil {
+					previous = row.Value
+				}
+				securityChanged = securityChanged || previous != value
+			}
 			if st, ok := byKey[key]; ok {
 				if st.Value == value {
 					continue
@@ -1700,6 +1717,9 @@ func (s *SettingService) UpdateAllSetting(allSetting *entity.AllSetting, clears 
 			if err := tx.Create(&model.Setting{Key: key, Value: value}).Error; err != nil {
 				return err
 			}
+		}
+		if securityChanged {
+			return InvalidateAuthentication(tx)
 		}
 		return nil
 	})

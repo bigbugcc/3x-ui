@@ -4070,6 +4070,81 @@ export const SCHEMAS: Record<string, unknown> = {
     ],
     "type": "object"
   },
+  "PasskeyConfigView": {
+    "properties": {
+      "config": {
+        "$ref": "#/components/schemas/PasskeySettings"
+      },
+      "version": {
+        "format": "int64",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "config",
+      "version"
+    ],
+    "type": "object"
+  },
+  "PasskeyCredential": {
+    "properties": {
+      "createdAt": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "id": {
+        "type": "integer"
+      },
+      "lastUsedAt": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "name": {
+        "type": "string"
+      },
+      "rpId": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "createdAt",
+      "id",
+      "lastUsedAt",
+      "name",
+      "rpId"
+    ],
+    "type": "object"
+  },
+  "PasskeySettings": {
+    "properties": {
+      "enabled": {
+        "type": "boolean"
+      },
+      "httpsMode": {
+        "type": "string"
+      },
+      "origins": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "rpId": {
+        "type": "string"
+      },
+      "trustedProxyCIDRs": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "enabled",
+      "httpsMode",
+      "origins",
+      "rpId",
+      "trustedProxyCIDRs"
+    ],
+    "type": "object"
+  },
   "PeerActivity": {
     "description": "PeerActivity is one peer's live embedded-Device-reported state, the\ncounterpart of an Xray access-log entry: a tunnel logs no requests, only\nhandshakes and bytes.",
     "properties": {

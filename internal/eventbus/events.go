@@ -51,6 +51,7 @@ type NodeHealthData struct {
 
 // LoginEventData carries login attempt details.
 type LoginEventData struct {
+	Method   string `json:"method,omitempty"`
 	Username string
 	IP       string
 	Time     string

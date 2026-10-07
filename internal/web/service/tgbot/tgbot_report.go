@@ -182,6 +182,7 @@ func (t *Tgbot) UserLoginNotify(attempt LoginAttempt) {
 		Type:   eventbus.EventLoginAttempt,
 		Source: attempt.IP,
 		Data: &eventbus.LoginEventData{
+			Method:   attempt.Method,
 			Username: attempt.Username,
 			IP:       attempt.IP,
 			Time:     attempt.Time,

@@ -107,41 +107,70 @@ func (s *UserService) CheckUser(username string, password string, twoFactorCode 
 }
 
 func (s *UserService) BumpLoginEpoch() error {
+	service.AuthenticationStateMu.Lock()
+	defer service.AuthenticationStateMu.Unlock()
 	db := database.GetDB()
-	return db.Model(model.User{}).
-		Where("1 = 1").
-		Update("login_epoch", gorm.Expr("login_epoch + 1")).
-		Error
+	return db.Transaction(service.InvalidateAuthentication)
 }
 
 func (s *UserService) UpdateUser(id int, username string, password string) error {
+	_, err := s.UpdateUserAtEpoch(id, username, password, -1)
+	return err
+}
+
+func (s *UserService) UpdateUserAtEpoch(id int, username, password string, expectedEpoch int64) (*model.User, error) {
+	service.AuthenticationStateMu.Lock()
+	defer service.AuthenticationStateMu.Unlock()
 	db := database.GetDB()
 	hashedPassword, err := crypto.HashPasswordAsBcrypt(password)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	twoFactorEnable, err := s.settingService.GetTwoFactorEnable()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if twoFactorEnable {
-		_ = s.settingService.SetTwoFactorEnable(false)
-		_ = s.settingService.SetTwoFactorToken("")
-	}
-
-	return db.Model(model.User{}).
-		Where("id = ?", id).
-		Updates(map[string]any{
+	var updated model.User
+	err = db.Transaction(func(tx *gorm.DB) error {
+		query := tx.Model(&model.User{}).Where("id = ?", id)
+		if expectedEpoch >= 0 {
+			query = query.Where("login_epoch = ?", expectedEpoch)
+		}
+		result := query.Updates(map[string]any{
 			"username":    username,
 			"password":    hashedPassword,
 			"login_epoch": gorm.Expr("login_epoch + 1"),
-		}).
-		Error
+		})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return service.ErrAuthenticationChanged
+		}
+		if twoFactorEnable {
+			if err := tx.Model(&model.Setting{}).Where("key = ?", "twoFactorEnable").Update("value", "false").Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&model.Setting{}).Where("key = ?", "twoFactorToken").Update("value", "").Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Where("user_id = ?", id).Delete(&model.PasskeyCredential{}).Error; err != nil {
+			return err
+		}
+		return tx.First(&updated, id).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &updated, nil
 }
 
 func (s *UserService) UpdateFirstUser(username string, password string) error {
+	service.AuthenticationStateMu.Lock()
+	defer service.AuthenticationStateMu.Unlock()
 	if username == "" {
 		return errors.New("username can not be empty")
 	} else if password == "" {
@@ -163,8 +192,17 @@ func (s *UserService) UpdateFirstUser(username string, password string) error {
 	} else if err != nil {
 		return err
 	}
-	user.Username = username
-	user.Password = hashedPassword
-	user.LoginEpoch++
-	return db.Save(user).Error
+	return db.Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&model.User{}).Where("id = ?", user.Id).Updates(map[string]any{
+			"username": username, "password": hashedPassword,
+			"login_epoch": gorm.Expr("login_epoch + 1"),
+		})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return service.ErrAuthenticationChanged
+		}
+		return tx.Where("user_id = ?", user.Id).Delete(&model.PasskeyCredential{}).Error
+	})
 }

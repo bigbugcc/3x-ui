@@ -15,6 +15,13 @@ const csrfTokenKey = "CSRF_TOKEN"
 // CSRFHeaderName is the request header used by browser clients for unsafe methods.
 const CSRFHeaderName = "X-CSRF-Token"
 
+// BrowserBinding identifies this signed browser session without putting any
+// replayable WebAuthn ceremony data in the cookie.
+func BrowserBinding(c *gin.Context) string {
+	token, _ := sessions.Default(c).Get(csrfTokenKey).(string)
+	return token
+}
+
 // EnsureCSRFToken returns the current session CSRF token or creates one.
 func EnsureCSRFToken(c *gin.Context) (string, error) {
 	s := sessions.Default(c)

@@ -346,6 +346,7 @@ reset_user() {
     fi
 
     echo -e "Panel login username has been reset to: ${green} ${config_account} ${plain}"
+    echo -e "All Passkeys for this account have been revoked. Register them again after signing in."
     echo -e "Panel login password has been reset to: ${green} ${config_password} ${plain}"
     echo -e "${green} Please use the new login username and password to access the X-UI panel. Also remember them! ${plain}"
     confirm_restart
@@ -3416,6 +3417,7 @@ show_usage() {
 |  ${blue}x-ui restart-xray${plain}          - Restart Xray                     │
 │  ${blue}x-ui status${plain}                - Current Status                   │
 │  ${blue}x-ui settings${plain}              - Current Settings                 │
+│  ${blue}x-ui reset-passkeys${plain}        - Revoke admin Passkeys            │
 │  ${blue}x-ui enable${plain}                - Enable Autostart on OS Startup   │
 │  ${blue}x-ui disable${plain}               - Disable Autostart on OS Startup  │
 │  ${blue}x-ui log${plain}                   - Check logs                       │
@@ -3571,6 +3573,11 @@ show_menu() {
 
 if [[ $# > 0 ]]; then
     case $1 in
+        "reset-passkeys")
+            if check_install 0; then
+                ${xui_folder}/x-ui setting -resetPasskeys=true
+            fi
+            ;;
         "start")
             check_install 0 && start 0
             ;;

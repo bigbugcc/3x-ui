@@ -159,6 +159,9 @@ func (s *Server) isDirectHTTPSConfigured() bool {
 // initRouter initializes Gin, registers middleware, templates, static
 // assets, controllers and returns the configured engine.
 func (s *Server) initRouter() (*gin.Engine, error) {
+	if err := service.RecoverRestoredAuthentication(); err != nil {
+		return nil, err
+	}
 	if config.IsDebug() {
 		gin.SetMode(gin.DebugMode)
 	} else {
@@ -168,6 +171,7 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 	}
 
 	engine := gin.Default()
+	engine.Use(middleware.AuthenticationAvailability())
 	directHTTPS := s.isDirectHTTPSConfigured()
 	sendHSTS := directHTTPS && !config.IsSkipHSTS()
 	engine.Use(middleware.SecurityHeadersMiddleware(sendHSTS))
@@ -217,6 +221,11 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 	engine.Use(sessions.Sessions("3x-ui", store))
 	engine.Use(func(c *gin.Context) {
 		c.Set("base_path", basePath)
+		secure := controller.SecureBrowserRequest(c)
+		c.Set("session_secure", secure)
+		options := sessionOptions
+		options.Secure = secure
+		sessions.Default(c).Options(options)
 	})
 	engine.Use(func(c *gin.Context) {
 		uri := c.Request.RequestURI
@@ -537,6 +546,9 @@ func (s *Server) StartPanelOnly() (err error) {
 }
 
 func (s *Server) start(restartXray bool, startTgBot bool) (err error) {
+	if err := service.RecoverRestoredAuthentication(); err != nil {
+		return err
+	}
 	// This is an anonymous function, no function name
 	defer func() {
 		if err != nil {

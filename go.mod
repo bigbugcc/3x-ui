@@ -10,6 +10,7 @@ require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-ldap/ldap/v3 v3.4.14
 	github.com/go-playground/validator/v10 v10.30.5
+	github.com/go-webauthn/webauthn v0.18.2
 	github.com/goccy/go-json v0.11.2
 	github.com/goccy/go-yaml v1.19.2
 	github.com/google/uuid v1.6.0
@@ -53,13 +54,18 @@ require (
 	github.com/cloudflare/circl v1.6.5 // indirect
 	github.com/cloudwego/base64x v0.1.7 // indirect
 	github.com/ebitengine/purego v0.11.1 // indirect
+	github.com/fxamacker/cbor/v2 v2.9.4 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.15 // indirect
 	github.com/gin-contrib/sse v1.1.2 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.8 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-playground/locales v0.14.2 // indirect
 	github.com/go-playground/universal-translator v0.18.2 // indirect
+	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
+	github.com/go-webauthn/x v0.3.1 // indirect
+	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/btree v1.1.3 // indirect
+	github.com/google/go-tpm v0.9.8 // indirect
 	github.com/gorilla/context v1.1.2 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/gorilla/sessions v1.4.0 // indirect
@@ -85,6 +91,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/molecule-man/go-brrr v1.1.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
+	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/pion/dtls/v3 v3.1.10 // indirect
 	github.com/pion/logging v0.2.4 // indirect
 	github.com/pion/stun/v3 v3.1.7 // indirect
@@ -94,6 +101,7 @@ require (
 	github.com/power-devops/perfstat v0.0.0-20260916203055-22a1a467d9f0 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/rogpeppe/go-internal v1.15.0 // indirect
+	github.com/tinylib/msgp v1.6.4 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
@@ -103,6 +111,7 @@ require (
 	github.com/vishvananda/netlink v1.3.1 // indirect
 	github.com/vishvananda/netns v0.0.5 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
+	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xtls/reality v0.0.0-20260921001439-3c98159dee38 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.9.1 // indirect

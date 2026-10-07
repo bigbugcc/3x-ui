@@ -198,10 +198,129 @@ const hwidStatusErrorResponses = {
 
 export const sections: readonly Section[] = [
   {
+    id: 'passkeys',
+    title: 'Passkeys',
+    description:
+      'WebAuthn with required device verification. Management requires a real browser session and CSRF, never Bearer or mTLS alone. All POST requests use JSON. Password login remains available.',
+    endpoints: [
+      {
+        method: 'GET',
+        path: '/passkey/status',
+        summary: 'Passkey deployment status',
+        security: [],
+      },
+      {
+        method: 'POST',
+        path: '/passkey/login/begin',
+        summary: 'Begin discoverable Passkey login',
+        security: [],
+        description:
+          'Requires the anonymous session CSRF token. Returns ceremonyId and publicKey. Challenge expires after 120 seconds.',
+      },
+      {
+        method: 'POST',
+        path: '/passkey/login/finish',
+        summary: 'Verify assertion and establish browser session',
+        security: [],
+        params: [
+          { name: 'ceremonyId', in: 'body (json)', type: 'string' },
+          { name: 'credential', in: 'body (json)', type: 'object' },
+        ],
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/setting/passkeys/config',
+        summary: 'Read Passkey configuration and version',
+        security: [{ cookieAuth: [] }],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/setting/passkeys/config/validate',
+        summary: 'Validate configuration without saving',
+        security: [{ cookieAuth: [] }],
+        params: [{ name: 'config', in: 'body (json)', type: 'object' }],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/setting/passkeys/config',
+        summary: 'Save configuration with password and TOTP verification',
+        security: [{ cookieAuth: [] }],
+        description:
+          'Config contains enabled, rpId, origins, httpsMode (direct/proxy), trustedProxyCIDRs (shared Web setting). Version conflicts return 409; success invalidates browser sessions.',
+        params: [
+          { name: 'config', in: 'body (json)', type: 'object' },
+          { name: 'expectedVersion', in: 'body (json)', type: 'integer' },
+          { name: 'currentPassword', in: 'body (json)', type: 'string' },
+          { name: 'twoFactorCode', in: 'body (json)', type: 'string', optional: true },
+        ],
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/setting/passkeys',
+        summary: 'List current user credentials without protocol material',
+        security: [{ cookieAuth: [] }],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/setting/passkeys/reauth',
+        summary: 'Authorize one registration or deletion',
+        security: [{ cookieAuth: [] }],
+        params: [
+          { name: 'purpose', in: 'body (json)', type: 'string', enum: ['register', 'delete'] },
+          { name: 'targetId', in: 'body (json)', type: 'integer', optional: true },
+          { name: 'currentPassword', in: 'body (json)', type: 'string' },
+          { name: 'twoFactorCode', in: 'body (json)', type: 'string', optional: true },
+        ],
+        description:
+          'Returns authorizationId, bound to the browser, user, epoch, config version and delete target. Single use; expires after five minutes.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/setting/passkeys/register/begin',
+        summary: 'Begin registration',
+        security: [{ cookieAuth: [] }],
+        params: [
+          { name: 'name', in: 'body (json)', type: 'string' },
+          { name: 'authorizationId', in: 'body (json)', type: 'string' },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/setting/passkeys/register/finish',
+        summary: 'Verify and save new credential',
+        security: [{ cookieAuth: [] }],
+        params: [
+          { name: 'ceremonyId', in: 'body (json)', type: 'string' },
+          { name: 'credential', in: 'body (json)', type: 'object' },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/setting/passkeys/rename/:id',
+        summary: 'Rename your credential',
+        security: [{ cookieAuth: [] }],
+        params: [
+          { name: 'id', in: 'path', type: 'integer' },
+          { name: 'name', in: 'body (json)', type: 'string' },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/setting/passkeys/delete/:id',
+        summary: 'Revoke your credential and invalidate browser sessions',
+        security: [{ cookieAuth: [] }],
+        params: [
+          { name: 'id', in: 'path', type: 'integer' },
+          { name: 'authorizationId', in: 'body (json)', type: 'string' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'authentication',
     title: 'Authentication',
     description:
-      'Two authentication modes are supported. UI sessions use a cookie set by the login endpoint. Programmatic clients (bots, scripts, remote panels) authenticate with a Bearer token taken from Settings → Security → API Token. Both work for every endpoint under /panel/api/*.',
+      'UI sessions use a cookie set by password or Passkey login. Programmatic clients (bots, scripts, remote panels) authenticate with a Bearer token taken from Settings → Security → API Token. Passkey management endpoints require a browser session and CSRF token; Bearer tokens and mTLS alone cannot manage Passkeys.',
     endpoints: [
       {
         method: 'POST',

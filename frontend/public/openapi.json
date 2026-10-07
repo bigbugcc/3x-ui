@@ -4096,6 +4096,81 @@
         ],
         "type": "object"
       },
+      "PasskeyConfigView": {
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/PasskeySettings"
+          },
+          "version": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "config",
+          "version"
+        ],
+        "type": "object"
+      },
+      "PasskeyCredential": {
+        "properties": {
+          "createdAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "lastUsedAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "rpId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "createdAt",
+          "id",
+          "lastUsedAt",
+          "name",
+          "rpId"
+        ],
+        "type": "object"
+      },
+      "PasskeySettings": {
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "httpsMode": {
+            "type": "string"
+          },
+          "origins": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "rpId": {
+            "type": "string"
+          },
+          "trustedProxyCIDRs": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "httpsMode",
+          "origins",
+          "rpId",
+          "trustedProxyCIDRs"
+        ],
+        "type": "object"
+      },
       "PeerActivity": {
         "description": "PeerActivity is one peer's live embedded-Device-reported state, the\ncounterpart of an Xray access-log entry: a tunnel logs no requests, only\nhandshakes and bytes.",
         "properties": {
@@ -4821,8 +4896,12 @@
   ],
   "tags": [
     {
+      "name": "Passkeys",
+      "description": "WebAuthn with required device verification. Management requires a real browser session and CSRF, never Bearer or mTLS alone. All POST requests use JSON. Password login remains available."
+    },
+    {
       "name": "Authentication",
-      "description": "Two authentication modes are supported. UI sessions use a cookie set by the login endpoint. Programmatic clients (bots, scripts, remote panels) authenticate with a Bearer token taken from Settings → Security → API Token. Both work for every endpoint under /panel/api/*."
+      "description": "UI sessions use a cookie set by password or Passkey login. Programmatic clients (bots, scripts, remote panels) authenticate with a Bearer token taken from Settings → Security → API Token. Passkey management endpoints require a browser session and CSRF token; Bearer tokens and mTLS alone cannot manage Passkeys."
     },
     {
       "name": "Inbounds",
@@ -4874,6 +4953,635 @@
     }
   ],
   "paths": {
+    "/passkey/status": {
+      "get": {
+        "tags": [
+          "Passkeys"
+        ],
+        "summary": "Passkey deployment status",
+        "operationId": "get_passkey_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/passkey/login/begin": {
+      "post": {
+        "tags": [
+          "Passkeys"
+        ],
+        "summary": "Begin discoverable Passkey login",
+        "operationId": "post_passkey_login_begin",
+        "description": "Requires the anonymous session CSRF token. Returns ceremonyId and publicKey. Challenge expires after 120 seconds.",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/passkey/login/finish": {
+      "post": {
+        "tags": [
+          "Passkeys"
+        ],
+        "summary": "Verify assertion and establish browser session",
+        "operationId": "post_passkey_login_finish",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ceremonyId": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "credential": {
+                    "type": "object",
+                    "description": ""
+                  }
+                },
+                "required": [
+                  "ceremonyId",
+                  "credential"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/panel/api/setting/passkeys/config": {
+      "get": {
+        "tags": [
+          "Passkeys"
+        ],
+        "summary": "Read Passkey configuration and version",
+        "operationId": "get_panel_api_setting_passkeys_config",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Passkeys"
+        ],
+        "summary": "Save configuration with password and TOTP verification",
+        "operationId": "post_panel_api_setting_passkeys_config",
+        "description": "Config contains enabled, rpId, origins, httpsMode (direct/proxy), trustedProxyCIDRs (shared Web setting). Version conflicts return 409; success invalidates browser sessions.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "config": {
+                    "type": "object",
+                    "description": ""
+                  },
+                  "expectedVersion": {
+                    "type": "integer",
+                    "description": ""
+                  },
+                  "currentPassword": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "twoFactorCode": {
+                    "type": "string",
+                    "description": ""
+                  }
+                },
+                "required": [
+                  "config",
+                  "expectedVersion",
+                  "currentPassword"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/panel/api/setting/passkeys/config/validate": {
+      "post": {
+        "tags": [
+          "Passkeys"
+        ],
+        "summary": "Validate configuration without saving",
+        "operationId": "post_panel_api_setting_passkeys_config_validate",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "config": {
+                    "type": "object",
+                    "description": ""
+                  }
+                },
+                "required": [
+                  "config"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/panel/api/setting/passkeys": {
+      "get": {
+        "tags": [
+          "Passkeys"
+        ],
+        "summary": "List current user credentials without protocol material",
+        "operationId": "get_panel_api_setting_passkeys",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/panel/api/setting/passkeys/reauth": {
+      "post": {
+        "tags": [
+          "Passkeys"
+        ],
+        "summary": "Authorize one registration or deletion",
+        "operationId": "post_panel_api_setting_passkeys_reauth",
+        "description": "Returns authorizationId, bound to the browser, user, epoch, config version and delete target. Single use; expires after five minutes.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "purpose": {
+                    "type": "string",
+                    "enum": [
+                      "register",
+                      "delete"
+                    ],
+                    "description": ""
+                  },
+                  "targetId": {
+                    "type": "integer",
+                    "description": ""
+                  },
+                  "currentPassword": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "twoFactorCode": {
+                    "type": "string",
+                    "description": ""
+                  }
+                },
+                "required": [
+                  "purpose",
+                  "currentPassword"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/panel/api/setting/passkeys/register/begin": {
+      "post": {
+        "tags": [
+          "Passkeys"
+        ],
+        "summary": "Begin registration",
+        "operationId": "post_panel_api_setting_passkeys_register_begin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "authorizationId": {
+                    "type": "string",
+                    "description": ""
+                  }
+                },
+                "required": [
+                  "name",
+                  "authorizationId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/panel/api/setting/passkeys/register/finish": {
+      "post": {
+        "tags": [
+          "Passkeys"
+        ],
+        "summary": "Verify and save new credential",
+        "operationId": "post_panel_api_setting_passkeys_register_finish",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ceremonyId": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "credential": {
+                    "type": "object",
+                    "description": ""
+                  }
+                },
+                "required": [
+                  "ceremonyId",
+                  "credential"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/panel/api/setting/passkeys/rename/{id}": {
+      "post": {
+        "tags": [
+          "Passkeys"
+        ],
+        "summary": "Rename your credential",
+        "operationId": "post_panel_api_setting_passkeys_rename_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": ""
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/panel/api/setting/passkeys/delete/{id}": {
+      "post": {
+        "tags": [
+          "Passkeys"
+        ],
+        "summary": "Revoke your credential and invalidate browser sessions",
+        "operationId": "post_panel_api_setting_passkeys_delete_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "authorizationId": {
+                    "type": "string",
+                    "description": ""
+                  }
+                },
+                "required": [
+                  "authorizationId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
     "/login": {
       "post": {
         "tags": [

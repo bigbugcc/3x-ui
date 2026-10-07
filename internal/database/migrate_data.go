@@ -38,6 +38,9 @@ import (
 func migrationModels() []any {
 	return []any{
 		&model.User{},
+		&model.PasskeyConfig{},
+		&model.WebAuthnUser{},
+		&model.PasskeyCredential{},
 		&model.Setting{},
 		&model.HistoryOfSeeders{},
 		&model.Node{},

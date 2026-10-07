@@ -45,6 +45,12 @@ func isTrustedForwardedRequest(c *gin.Context) bool {
 	return ok && isTrustedProxy(remoteIP)
 }
 
+// SecureBrowserRequest accepts HTTPS termination only from explicitly trusted
+// proxies. The same rule protects cookies and Passkey request origins.
+func SecureBrowserRequest(c *gin.Context) bool {
+	return c.Request.TLS != nil || (isTrustedForwardedRequest(c) && c.GetHeader("X-Forwarded-Proto") == "https")
+}
+
 func isTrustedProxy(ip string) bool {
 	addr, err := netip.ParseAddr(ip)
 	if err != nil {
@@ -76,7 +82,7 @@ func trustedProxyCIDRs() (trusted string) {
 		_ = recover()
 	}()
 	settingService := service.SettingService{}
-	if value, err := settingService.GetTrustedProxyCIDRs(); err == nil && strings.TrimSpace(value) != "" {
+	if value, err := settingService.GetTrustedProxyCIDRs(); err == nil {
 		trusted = value
 	}
 	return trusted

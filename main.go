@@ -402,13 +402,17 @@ func updateSetting(port int, username string, password string, webBasePath strin
 		}
 	}
 
+	if webBasePath != "" && !resetTwoFactor {
+		if err := userService.BumpLoginEpoch(); err != nil {
+			return err
+		}
+	}
 	if resetTwoFactor {
-		err := settingService.SetTwoFactorEnable(false)
+		err := settingService.ResetTwoFactorAuthentication()
 
 		if err != nil {
 			fmt.Println("Failed to reset two-factor authentication:", err)
 		} else {
-			_ = settingService.SetTwoFactorToken("")
 			fmt.Println("Two-factor authentication reset successfully")
 		}
 	}
@@ -625,6 +629,7 @@ func main() {
 	var tokenName string
 	var tokenScope string
 	var resetTwoFactor bool
+	var resetPasskeys bool
 	settingCmd.BoolVar(&reset, "reset", false, "Reset all settings")
 	settingCmd.BoolVar(&show, "show", false, "Display current settings")
 	settingCmd.IntVar(&port, "port", 0, "Set panel port number")
@@ -633,6 +638,7 @@ func main() {
 	settingCmd.StringVar(&webBasePath, "webBasePath", "", "Set base path for Panel")
 	settingCmd.StringVar(&listenIP, "listenIP", "", "set panel listenIP IP")
 	settingCmd.BoolVar(&resetTwoFactor, "resetTwoFactor", false, "Reset two-factor authentication settings")
+	settingCmd.BoolVar(&resetPasskeys, "resetPasskeys", false, "Revoke all Passkeys of the first administrator and invalidate browser sessions")
 	settingCmd.BoolVar(&getListen, "getListen", false, "Display current panel listenIP IP")
 	settingCmd.BoolVar(&getCert, "getCert", false, "Display current certificate settings")
 	settingCmd.BoolVar(&getApiToken, "getApiToken", false, "Print an API token for CLI use, regenerating it and invalidating the previous one; on a panel with no tokens yet it mints one instead")
@@ -725,6 +731,17 @@ func main() {
 		}
 		if webCertFile != "" || webKeyFile != "" {
 			updateCert(webCertFile, webKeyFile)
+		}
+		if resetPasskeys {
+			user, resetErr := (&panel.UserService{}).GetFirstUser()
+			if resetErr == nil {
+				resetErr = (&panel.PasskeyService{}).Reset(user.Id)
+			}
+			if resetErr != nil {
+				fmt.Println("Failed to revoke Passkeys:", resetErr)
+				os.Exit(1)
+			}
+			fmt.Println("All administrator Passkeys revoked; browser sessions invalidated.")
 		}
 		if show {
 			showSetting(show)

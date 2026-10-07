@@ -5,6 +5,8 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/database"
+	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/entity"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/middleware"
@@ -50,6 +52,7 @@ func (a *IndexController) initRouter(g *gin.RouterGroup) {
 	g.POST("/login", middleware.CSRFMiddleware(), a.login)
 	g.POST("/logout", middleware.CSRFMiddleware(), a.logout)
 	g.POST("/getTwoFactorEnable", middleware.CSRFMiddleware(), a.getTwoFactorEnable)
+	registerPasskeyPublic(g)
 }
 
 // sponsors is public so the login page can render its slot; failures stay silent.
@@ -100,6 +103,12 @@ func (a *IndexController) login(c *gin.Context) {
 		pureJsonMsg(c, http.StatusOK, false, I18nWeb(c, "pages.login.toasts.emptyPassword"))
 		return
 	}
+	service.AuthenticationStateMu.RLock()
+	defer service.AuthenticationStateMu.RUnlock()
+	if database.AuthenticationSuspended.Load() {
+		passkeyError(c, http.StatusServiceUnavailable, "passkey.errors.unavailable")
+		return
+	}
 
 	remoteIP := getRemoteIp(c)
 	safeUser := template.HTMLEscapeString(form.Username)
@@ -138,19 +147,25 @@ func (a *IndexController) login(c *gin.Context) {
 		return
 	}
 
-	defaultLoginLimiter.registerSuccess(remoteIP, form.Username)
-	logger.Infof("logged in successfully: username=%q, IP=%q", form.Username, remoteIP)
-	a.tgbot.UserLoginNotify(tgbot.LoginAttempt{
-		Username: safeUser,
-		IP:       remoteIP,
-		Time:     timeStr,
-		Status:   tgbot.LoginSuccess,
-	})
+	a.completeLogin(c, user, "password")
+}
 
+func (a *IndexController) completeLogin(c *gin.Context, user *model.User, method string) {
 	if err := session.SetLoginUser(c, user); err != nil {
 		logger.Warning("Unable to save session:", err)
+		pureJsonMsg(c, http.StatusInternalServerError, false, I18nWeb(c, "passkey.errors.save"))
 		return
 	}
+	remoteIP := getRemoteIp(c)
+	defaultLoginLimiter.registerSuccess(remoteIP, user.Username)
+	logger.Infof("logged in successfully: user_id=%d, username=%q, IP=%q, method=%q", user.Id, user.Username, remoteIP, method)
+	a.tgbot.UserLoginNotify(tgbot.LoginAttempt{
+		Username: template.HTMLEscapeString(user.Username),
+		IP:       remoteIP,
+		Time:     time.Now().Format("2006-01-02 15:04:05"),
+		Status:   tgbot.LoginSuccess,
+		Method:   method,
+	})
 
 	jsonMsg(c, I18nWeb(c, "pages.login.toasts.successLogin"), nil)
 }
@@ -163,6 +178,7 @@ func loginFailureReason(err error) string {
 }
 
 func (a *IndexController) logout(c *gin.Context) {
+	defaultPasskeyStore.ClearBinding(session.BrowserBinding(c))
 	user := session.GetLoginUser(c)
 	if user != nil {
 		logger.Infof("logged out successfully: username=%q", user.Username)

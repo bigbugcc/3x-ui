@@ -32,6 +32,7 @@ func run(root, outDir string) error {
 				"ApiToken",
 				"HistoryOfSeeders",
 				"Setting",
+				"PasskeyCredential",
 				"Node",
 				"ClientReverse",
 				"Client",
@@ -91,6 +92,8 @@ func run(root, outDir string) error {
 			Path: resolveRel(root, "internal/web/service"),
 			StructAllow: setOf(
 				"InboundOption",
+				"PasskeySettings",
+				"PasskeyConfigView",
 				"HappLinkResult",
 				"ClientSlim",
 				"ClientRenewalPreviewRequest",

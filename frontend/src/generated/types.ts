@@ -930,6 +930,27 @@ export interface PanelUpdateStatus {
   state: string;
 }
 
+export interface PasskeyConfigView {
+  config: PasskeySettings;
+  version: number;
+}
+
+export interface PasskeyCredential {
+  createdAt: number;
+  id: number;
+  lastUsedAt: number;
+  name: string;
+  rpId: string;
+}
+
+export interface PasskeySettings {
+  enabled: boolean;
+  httpsMode: string;
+  origins: string[];
+  rpId: string;
+  trustedProxyCIDRs: string;
+}
+
 export interface PeerActivity {
   allowedIPs: string;
   down: number;

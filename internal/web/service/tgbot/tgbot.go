@@ -214,6 +214,7 @@ const (
 // LoginAttempt contains safe metadata for panel login notifications.
 // It intentionally does not include attempted passwords.
 type LoginAttempt struct {
+	Method   string
 	Username string
 	IP       string
 	Time     string
