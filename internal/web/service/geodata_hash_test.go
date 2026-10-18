@@ -22,7 +22,7 @@ func TestGeoHashReadFailureKeepsExecutionSuccessfulAndPreservesBaseline(t *testi
 		t.Fatal(err)
 	}
 	first := TaskExecutionLog{ID: "first", Task: "geodata", XrayRestartRun: XrayRestartRun{StartedAt: time.Now().UnixMilli(), Status: "success"}}
-	if _, err := saveGeodataHashes(&first, []geodataHashSample{{file: "geosite.dat", path: path, hash: digest}}, 1000); err != nil {
+	if _, err := saveGeodataHashes(&first, []geodataHashSample{{file: "geosite.dat", path: path, hash: digest}}, 1000, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Remove(path); err != nil {
@@ -33,7 +33,7 @@ func TestGeoHashReadFailureKeepsExecutionSuccessfulAndPreservesBaseline(t *testi
 		t.Fatalf("missing-file snapshot error: %v", readErr)
 	}
 	next := TaskExecutionLog{ID: "second", Task: "geodata", XrayRestartRun: XrayRestartRun{StartedAt: time.Now().Add(time.Second).UnixMilli(), Status: "success"}}
-	if _, err := saveGeodataHashes(&next, []geodataHashSample{{file: "geosite.dat", path: path, hash: digest, err: readErr}}, 2000); err != nil {
+	if _, err := saveGeodataHashes(&next, []geodataHashSample{{file: "geosite.dat", path: path, hash: digest, err: readErr}}, 2000, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	logs, err := GetTaskExecutionLogs()
@@ -62,7 +62,7 @@ func TestGeoHashStateTransactionFailureCannotAdvanceBaselineOrRewriteLog(t *test
 	if err := db.Exec(`CREATE TRIGGER reject_geo_hash_baseline BEFORE INSERT ON settings WHEN NEW.key = 'geodataHashBaselines' BEGIN SELECT RAISE(ABORT, 'hash baseline rejected'); END`).Error; err != nil {
 		t.Fatal(err)
 	}
-	_, err := saveGeodataHashes(&record, []geodataHashSample{{file: "geosite.dat", path: filepath.Join(t.TempDir(), "geosite.dat"), hash: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"}}, 1000)
+	_, err := saveGeodataHashes(&record, []geodataHashSample{{file: "geosite.dat", path: filepath.Join(t.TempDir(), "geosite.dat"), hash: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"}}, 1000, "UTC")
 	if err == nil || err.Error() != "hash baseline rejected" {
 		t.Fatalf("unexpected transaction result: %v", err)
 	}

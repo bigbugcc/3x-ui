@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1398,9 +1399,12 @@ func (s *XrayService) RestartXrayScheduled() (bool, error) {
 
 // RestartXrayIfRunning reconciles a running core; changed geodata requires a
 // process restart, while unchanged configuration leaves connections intact.
-func (s *XrayService) RestartXrayIfRunning() (bool, error) {
+func (s *XrayService) RestartXrayIfRunning(ctx context.Context) (bool, error) {
 	lock.Lock()
 	defer lock.Unlock()
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
 	process := currentXrayProcess()
 	if isManuallyStopped.Load() || process == nil || !process.IsRunning() {
 		return false, nil

@@ -2565,6 +2565,9 @@ export const SCHEMAS: Record<string, unknown> = {
         "format": "int64",
         "type": "integer"
       },
+      "baselineTimezone": {
+        "type": "string"
+      },
       "currentHash": {
         "type": "string"
       },
@@ -2599,6 +2602,9 @@ export const SCHEMAS: Record<string, unknown> = {
       },
       "config": {
         "$ref": "#/components/schemas/GeodataUpdateSchedule"
+      },
+      "displayTimezone": {
+        "type": "string"
       },
       "nextRun": {
         "format": "int64",
@@ -4776,6 +4782,12 @@ export const SCHEMAS: Record<string, unknown> = {
       "task": {
         "type": "string"
       },
+      "timezone": {
+        "type": "string"
+      },
+      "timezoneInferred": {
+        "type": "boolean"
+      },
       "trigger": {
         "type": "string"
       }
@@ -5036,6 +5048,9 @@ export const SCHEMAS: Record<string, unknown> = {
     "properties": {
       "config": {
         "$ref": "#/components/schemas/XrayRestartSchedule"
+      },
+      "displayTimezone": {
+        "type": "string"
       },
       "history": {
         "items": {

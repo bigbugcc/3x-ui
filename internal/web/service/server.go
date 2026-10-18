@@ -2341,7 +2341,7 @@ func (s *ServerService) UpdateGeofile(fileName string) error {
 		entries := byRepo[repo]
 		slices.SortFunc(entries, func(a, b geofileEntry) int { return strings.Compare(a.FileName, b.FileName) })
 
-		staged, err := s.stageGeofileRelease(client, entries, binFolder, stageDir)
+		staged, err := s.stageGeofileRelease(context.Background(), client, entries, binFolder, stageDir)
 		if err != nil {
 			errorMessages = append(errorMessages, err.Error())
 			continue
@@ -2372,10 +2372,10 @@ func (s *ServerService) UpdateGeofile(fileName string) error {
 
 // stageGeofileRelease downloads one upstream's databases and verifies each
 // against a digest from the same release, staging all of them or none.
-func (s *ServerService) stageGeofileRelease(client *http.Client, entries []geofileEntry, binFolder, stageDir string) ([]stagedGeofile, error) {
+func (s *ServerService) stageGeofileRelease(ctx context.Context, client *http.Client, entries []geofileEntry, binFolder, stageDir string) ([]stagedGeofile, error) {
 	// Resolve "latest" once. These upstreams publish several times a day, and a
 	// release landing mid-batch would check one release's digest against another's bytes.
-	tag, err := resolveGeofileTag(client, entries[0].latestURL())
+	tag, err := resolveGeofileTag(ctx, client, entries[0].latestURL())
 	if err != nil {
 		return nil, common.NewErrorf("Error resolving Geofile release from %s: %v", entries[0].Repo, err)
 	}
@@ -2384,7 +2384,7 @@ func (s *ServerService) stageGeofileRelease(client *http.Client, entries []geofi
 	for _, entry := range entries {
 		destPath := filepath.Join(binFolder, entry.FileName)
 		stagePath := filepath.Join(stageDir, entry.FileName)
-		changed, err := s.stageGeofile(client, entry, tag, destPath, stagePath)
+		changed, err := s.stageGeofile(ctx, client, entry, tag, destPath, stagePath)
 		if err != nil {
 			return nil, common.NewErrorf("Error downloading Geofile '%s': %v", entry.FileName, err)
 		}
@@ -2397,11 +2397,11 @@ func (s *ServerService) stageGeofileRelease(client *http.Client, entries []geofi
 
 // resolveGeofileTag reads the immutable release tag a `latest` download
 // redirects to, so the asset and its digest cannot come from two releases.
-func resolveGeofileTag(client *http.Client, latestURL string) (string, error) {
+func resolveGeofileTag(ctx context.Context, client *http.Client, latestURL string) (string, error) {
 	pinned := *client
 	pinned.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, latestURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, latestURL, nil)
 	if err != nil {
 		return "", err
 	}
@@ -2436,9 +2436,9 @@ func geofileTagFromLocation(location string) (string, error) {
 
 // stageGeofile downloads one database into stagePath and checks it against the
 // SHA-256 its upstream publishes. It reports false on 304, staging nothing.
-func (s *ServerService) stageGeofile(client *http.Client, entry geofileEntry, tag, destPath, stagePath string) (bool, error) {
+func (s *ServerService) stageGeofile(ctx context.Context, client *http.Client, entry geofileEntry, tag, destPath, stagePath string) (bool, error) {
 	assetURL := entry.taggedURL(tag)
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, assetURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, assetURL, nil)
 	if err != nil {
 		return false, common.NewErrorf("Failed to create HTTP request for %s: %v", assetURL, err)
 	}
@@ -2500,7 +2500,7 @@ func (s *ServerService) stageGeofile(client *http.Client, entry geofileEntry, ta
 
 	// TLS protects the transport, not the artifact. Xray parses these databases
 	// when it builds its routing matchers, so a bad one takes the core down.
-	want, err := s.fetchGeofileDigest(client, assetURL+".sha256sum", entry.Asset)
+	want, err := s.fetchGeofileDigest(ctx, client, assetURL+".sha256sum", entry.Asset)
 	if err != nil {
 		return false, err
 	}
@@ -2514,8 +2514,8 @@ func (s *ServerService) stageGeofile(client *http.Client, entry geofileEntry, ta
 
 // fetchGeofileDigest downloads the .sha256sum sidecar published beside a geo
 // database and returns the digest it lists for assetName.
-func (s *ServerService) fetchGeofileDigest(client *http.Client, sumsURL, assetName string) (string, error) {
-	req, reqErr := http.NewRequestWithContext(context.Background(), http.MethodGet, sumsURL, nil)
+func (s *ServerService) fetchGeofileDigest(ctx context.Context, client *http.Client, sumsURL, assetName string) (string, error) {
+	req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, sumsURL, nil)
 	if reqErr != nil {
 		return "", fmt.Errorf("download geofile checksum: %w", reqErr)
 	}

@@ -26,19 +26,22 @@ type TaskLogSettings struct {
 
 type TaskExecutionLog struct {
 	XrayRestartRun
-	ID              string                  `json:"id"`
-	Task            string                  `json:"task"`
-	Details         string                  `json:"details"`
-	HashComparisons []GeodataHashComparison `json:"hashComparisons,omitempty"`
+	ID               string                  `json:"id"`
+	Task             string                  `json:"task"`
+	Details          string                  `json:"details"`
+	Timezone         string                  `json:"timezone,omitempty"`
+	TimezoneInferred bool                    `json:"timezoneInferred,omitempty"`
+	HashComparisons  []GeodataHashComparison `json:"hashComparisons,omitempty"`
 }
 
 type GeodataHashComparison struct {
-	File         string `json:"file" example:"geosite.dat"`
-	Status       string `json:"status" example:"changed"`
-	PreviousHash string `json:"previousHash,omitempty"`
-	CurrentHash  string `json:"currentHash,omitempty"`
-	BaselineAt   int64  `json:"baselineAt,omitempty"`
-	Error        string `json:"error,omitempty"`
+	File             string `json:"file" example:"geosite.dat"`
+	Status           string `json:"status" example:"changed"`
+	PreviousHash     string `json:"previousHash,omitempty"`
+	CurrentHash      string `json:"currentHash,omitempty"`
+	BaselineAt       int64  `json:"baselineAt,omitempty"`
+	BaselineTimezone string `json:"baselineTimezone,omitempty"`
+	Error            string `json:"error,omitempty"`
 }
 
 type TaskExecutionLogView struct {
@@ -178,6 +181,7 @@ func GetTaskExecutionLogs() (*TaskExecutionLogView, error) {
 	}); err != nil {
 		return nil, err
 	}
+	inferTaskLogTimezones(history)
 	return &TaskExecutionLogView{Settings: cfg, History: history}, nil
 }
 

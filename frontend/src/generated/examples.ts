@@ -658,6 +658,7 @@ export const EXAMPLES: Record<string, unknown> = {
   },
   "GeodataHashComparison": {
     "baselineAt": 0,
+    "baselineTimezone": "",
     "currentHash": "",
     "error": "",
     "file": "geosite.dat",
@@ -679,6 +680,7 @@ export const EXAMPLES: Record<string, unknown> = {
       "outbound": "",
       "timezone": ""
     },
+    "displayTimezone": "",
     "nextRun": 0,
     "outboundTags": [
       ""
@@ -1209,6 +1211,7 @@ export const EXAMPLES: Record<string, unknown> = {
     "hashComparisons": [
       {
         "baselineAt": 0,
+        "baselineTimezone": "",
         "currentHash": "",
         "error": "",
         "file": "geosite.dat",
@@ -1227,6 +1230,8 @@ export const EXAMPLES: Record<string, unknown> = {
       }
     ],
     "task": "",
+    "timezone": "",
+    "timezoneInferred": false,
     "trigger": ""
   },
   "TaskExecutionLogView": {
@@ -1238,6 +1243,7 @@ export const EXAMPLES: Record<string, unknown> = {
         "hashComparisons": [
           {
             "baselineAt": 0,
+            "baselineTimezone": "",
             "currentHash": "",
             "error": "",
             "file": "geosite.dat",
@@ -1256,6 +1262,8 @@ export const EXAMPLES: Record<string, unknown> = {
           }
         ],
         "task": "",
+        "timezone": "",
+        "timezoneInferred": false,
         "trigger": ""
       }
     ],
@@ -1334,6 +1342,7 @@ export const EXAMPLES: Record<string, unknown> = {
       ],
       "timezone": ""
     },
+    "displayTimezone": "",
     "history": [
       {
         "durationMs": 0,

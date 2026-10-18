@@ -642,6 +642,7 @@ export type GeoFile = z.infer<typeof GeoFileSchema>;
 
 export const GeodataHashComparisonSchema = z.object({
   baselineAt: z.number().int().optional(),
+  baselineTimezone: z.string().optional(),
   currentHash: z.string().optional(),
   error: z.string().optional(),
   file: z.string(),
@@ -654,6 +655,7 @@ export const GeodataScheduleViewSchema = z.object({
   applied: z.boolean(),
   applyError: z.string(),
   config: z.lazy(() => GeodataUpdateScheduleSchema),
+  displayTimezone: z.string().optional(),
   nextRun: z.number().int(),
   outboundTags: z.array(z.string()),
   standardSources: z.array(z.lazy(() => GeodataSourceSchema)),
@@ -1167,6 +1169,8 @@ export const TaskExecutionLogSchema = z.object({
   status: z.string(),
   steps: z.array(z.lazy(() => TaskExecutionStepSchema)).optional(),
   task: z.string(),
+  timezone: z.string().optional(),
+  timezoneInferred: z.boolean().optional(),
   trigger: z.string(),
 });
 export type TaskExecutionLog = z.infer<typeof TaskExecutionLogSchema>;
@@ -1247,6 +1251,7 @@ export type XrayRestartSchedule = z.infer<typeof XrayRestartScheduleSchema>;
 
 export const XrayRestartScheduleViewSchema = z.object({
   config: z.lazy(() => XrayRestartScheduleSchema),
+  displayTimezone: z.string().optional(),
   history: z.array(z.lazy(() => XrayRestartRunSchema)),
   nextRun: z.number().int(),
   outboundTags: z.array(z.string()),

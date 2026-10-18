@@ -2591,6 +2591,9 @@
             "format": "int64",
             "type": "integer"
           },
+          "baselineTimezone": {
+            "type": "string"
+          },
           "currentHash": {
             "type": "string"
           },
@@ -2625,6 +2628,9 @@
           },
           "config": {
             "$ref": "#/components/schemas/GeodataUpdateSchedule"
+          },
+          "displayTimezone": {
+            "type": "string"
           },
           "nextRun": {
             "format": "int64",
@@ -4802,6 +4808,12 @@
           "task": {
             "type": "string"
           },
+          "timezone": {
+            "type": "string"
+          },
+          "timezoneInferred": {
+            "type": "boolean"
+          },
           "trigger": {
             "type": "string"
           }
@@ -5062,6 +5074,9 @@
         "properties": {
           "config": {
             "$ref": "#/components/schemas/XrayRestartSchedule"
+          },
+          "displayTimezone": {
+            "type": "string"
           },
           "history": {
             "items": {
@@ -14572,6 +14587,7 @@
                       ],
                       "timezone": ""
                     },
+                    "displayTimezone": "",
                     "history": [
                       {
                         "durationMs": 0,
@@ -14673,6 +14689,7 @@
                       ],
                       "timezone": ""
                     },
+                    "displayTimezone": "",
                     "history": [
                       {
                         "durationMs": 0,
@@ -14796,6 +14813,7 @@
                       "outbound": "",
                       "timezone": ""
                     },
+                    "displayTimezone": "",
                     "nextRun": 0,
                     "outboundTags": [
                       ""
@@ -14897,6 +14915,7 @@
                       "outbound": "",
                       "timezone": ""
                     },
+                    "displayTimezone": "",
                     "nextRun": 0,
                     "outboundTags": [
                       ""
@@ -14953,6 +14972,7 @@
                         "hashComparisons": [
                           {
                             "baselineAt": 0,
+                            "baselineTimezone": "",
                             "currentHash": "",
                             "error": "",
                             "file": "geosite.dat",
@@ -14971,6 +14991,8 @@
                           }
                         ],
                         "task": "",
+                        "timezone": "",
+                        "timezoneInferred": false,
                         "trigger": ""
                       }
                     ],
@@ -15041,6 +15063,7 @@
                         "hashComparisons": [
                           {
                             "baselineAt": 0,
+                            "baselineTimezone": "",
                             "currentHash": "",
                             "error": "",
                             "file": "geosite.dat",
@@ -15059,6 +15082,8 @@
                           }
                         ],
                         "task": "",
+                        "timezone": "",
+                        "timezoneInferred": false,
                         "trigger": ""
                       }
                     ],
@@ -15111,6 +15136,7 @@
                         "hashComparisons": [
                           {
                             "baselineAt": 0,
+                            "baselineTimezone": "",
                             "currentHash": "",
                             "error": "",
                             "file": "geosite.dat",
@@ -15129,6 +15155,8 @@
                           }
                         ],
                         "task": "",
+                        "timezone": "",
+                        "timezoneInferred": false,
                         "trigger": ""
                       }
                     ],

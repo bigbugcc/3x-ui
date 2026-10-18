@@ -32,7 +32,7 @@ func (p *monitoredGeoProcess) emit(kind string, at time.Time) {
 	p.events = append(p.events, xray.GeodataEvent{Sequence: uint64(len(p.events) + 1), Kind: kind, At: at, Message: kind})
 }
 
-func TestGeoExecutionLogsConfirmNativeReloadWithoutAssets(t *testing.T) {
+func TestGeoExecutionLogsSkipUpdatesWithoutAssets(t *testing.T) {
 	setupSettingTestDB(t)
 	p := &monitoredGeoProcess{running: true, cfg: &xray.Config{Geodata: json_util.RawMessage(`{"cron":"* * * * *","assets":[]}`)}}
 	m := &GeodataExecutionMonitor{}
@@ -55,14 +55,52 @@ func TestGeoExecutionLogsConfirmNativeReloadWithoutAssets(t *testing.T) {
 	p.emit("site-ok", start.Add(2*time.Millisecond))
 	m.observe(p, start.Add(2*time.Second))
 	logs, _ = GetTaskExecutionLogs()
-	if len(logs.History) != 1 || logs.History[0].Status != "success" || logs.History[0].Details != "geoReloadOnly" || logs.History[0].DurationMs != 2 {
+	if len(logs.History) != 1 || logs.History[0].Status != "skipped" || logs.History[0].Details != "geoNoDownloads" || logs.History[0].DurationMs != 2 {
 		t.Fatalf("completed reload: %+v", logs)
 	}
 	p.running = false
 	m.observe(p, start.Add(3*time.Second))
 	logs, _ = GetTaskExecutionLogs()
-	if logs.History[0].Status != "success" {
+	if logs.History[0].Status != "skipped" {
 		t.Fatalf("stop erased success: %+v", logs)
+	}
+}
+
+func TestGeoExecutionLogsKeepServerLocalTimeAndBaselineDSTOffsets(t *testing.T) {
+	setupSettingTestDB(t)
+	local, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		t.Fatal(err)
+	}
+	previousLocal := time.Local
+	time.Local = local
+	t.Cleanup(func() { time.Local = previousLocal })
+	dir := t.TempDir()
+	t.Setenv("XRAY_LOCATION_ASSET", dir)
+	path := filepath.Join(dir, "geosite.dat")
+	if err := os.WriteFile(path, []byte("abc"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	baselineAt := time.Date(time.Now().Year(), 1, 1, 3, 30, 0, 0, time.UTC)
+	first := TaskExecutionLog{ID: "winter-baseline", Task: "geodata", Timezone: "-05:00", XrayRestartRun: XrayRestartRun{StartedAt: time.Now().UnixMilli(), Status: "success"}}
+	if _, err := saveGeodataHashes(&first, []geodataHashSample{{file: "geosite.dat", path: path, hash: "old"}}, baselineAt.UnixMilli(), "Local"); err != nil {
+		t.Fatal(err)
+	}
+	p := &monitoredGeoProcess{running: true, cfg: &xray.Config{Geodata: json_util.RawMessage(`{"cron":"CRON_TZ=Local * * * * *","assets":[{"file":"geosite.dat"}]}`)}}
+	start := time.Now().Add(time.Second)
+	p.emit("download", start)
+	p.emit("ip-start", start)
+	p.emit("ip-ok", start.Add(time.Millisecond))
+	p.emit("site-ok", start.Add(2*time.Millisecond))
+	m := &GeodataExecutionMonitor{}
+	m.observe(p, start.Add(time.Second))
+	logs, err := GetTaskExecutionLogs()
+	if err != nil || len(logs.History) != 2 {
+		t.Fatalf("local execution: %+v, %v", logs, err)
+	}
+	record := logs.History[0]
+	if record.Status != "success" || record.Timezone != start.In(local).Format("-07:00") || record.TimezoneInferred || len(record.HashComparisons) != 1 || record.HashComparisons[0].BaselineTimezone != "-05:00" {
+		t.Fatalf("lost server time zones: %+v", record)
 	}
 }
 
@@ -134,7 +172,7 @@ func TestGeoExecutionLogsDrainMultipleRunsAndKeepInterruptedResultsUnknown(t *te
 	m := &GeodataExecutionMonitor{}
 	m.observe(p, start.Add(3*time.Second))
 	logs, _ := GetTaskExecutionLogs()
-	if len(logs.History) != 2 || logs.History[0].Status != "success" || logs.History[1].Status != "success" {
+	if len(logs.History) != 2 || logs.History[0].Status != "skipped" || logs.History[1].Status != "skipped" {
 		t.Fatalf("coalesced runs: %+v", logs)
 	}
 	p.emit("ip-start", start.Add(4*time.Second))

@@ -83,10 +83,10 @@ func TestXrayScheduleRealCoreLifecycle(t *testing.T) {
 		t.Fatal("scheduled task did not replace the running core")
 	}
 	plan := GeodataUpdateSchedule{Cron: "0 4 * * *", Timezone: "Asia/Shanghai", Assets: []GeodataSource{}}
-	if err := settings.SaveGeodataSchedule(plan); err != nil {
+	if err := settings.SaveGeodataSchedule(context.Background(), plan); err != nil {
 		t.Fatal(err)
 	}
-	if applied, err := svc.RestartXrayIfRunning(); !applied || err != nil {
+	if applied, err := svc.RestartXrayIfRunning(context.Background()); !applied || err != nil {
 		t.Fatalf("draft apply = %v, %v", applied, err)
 	}
 	if currentXrayProcess() != second {
@@ -101,10 +101,10 @@ func TestXrayScheduleRealCoreLifecycle(t *testing.T) {
 	}
 	plan.Enabled = true
 	plan.Assets = []GeodataSource{{URL: "https://example.com/geosite.dat", File: "geosite.dat"}}
-	if err := settings.SaveGeodataSchedule(plan); err != nil {
+	if err := settings.SaveGeodataSchedule(context.Background(), plan); err != nil {
 		t.Fatal(err)
 	}
-	if applied, err := svc.RestartXrayIfRunning(); !applied || err != nil {
+	if applied, err := svc.RestartXrayIfRunning(context.Background()); !applied || err != nil {
 		t.Fatalf("Geo apply = %v, %v", applied, err)
 	}
 	waitForMaintenanceCore(t, port)
@@ -154,7 +154,7 @@ func TestXrayScheduleRealCoreLifecycle(t *testing.T) {
 			t.Fatalf("observation changed persisted log settings: %s != %s", actualLog, diskLog)
 		}
 	}
-	assertGeo := func(details string) {
+	assertGeo := func(status, details string) {
 		t.Helper()
 		monitor := &GeodataExecutionMonitor{}
 		core := currentXrayProcess()
@@ -166,7 +166,10 @@ func TestXrayScheduleRealCoreLifecycle(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, entry := range logs.History {
-				if entry.Task == "geodata" && entry.Status == "success" && entry.Details == details {
+				if entry.Task == "geodata" && entry.Status == status && entry.Details == details {
+					if entry.Timezone == "" || entry.TimezoneInferred {
+						t.Fatalf("native execution lost its timezone: %+v", entry)
+					}
 					if currentXrayProcess() != core || !core.IsRunning() {
 						t.Fatal("observing a native reload restarted the core")
 					}
@@ -178,13 +181,13 @@ func TestXrayScheduleRealCoreLifecycle(t *testing.T) {
 		t.Fatalf("native Geo completion %q was not recorded", details)
 	}
 	apply()
-	assertGeo("geoReloadOnly")
+	assertGeo("skipped", "geoNoDownloads")
 	native["log"] = map[string]any{"loglevel": "warning", "error": filepath.Join(dir, "native-error.log")}
 	apply()
-	assertGeo("geoReloadOnly")
+	assertGeo("skipped", "geoNoDownloads")
 	native["log"] = map[string]any{"loglevel": "none"}
 	apply()
-	assertGeo("geoReloadOnly")
+	assertGeo("skipped", "geoNoDownloads")
 	native["log"] = map[string]any{"loglevel": "error"}
 	native["geodata"] = map[string]any{"cron": "@every 1s", "assets": []any{map[string]any{"file": "geosite.dat", "url": "https://127.0.0.1:1/geosite.dat"}}}
 	apply()

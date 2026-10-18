@@ -38,6 +38,7 @@ type GeodataExecutionMonitor struct {
 	hashUndo  map[string]*geodataHashBaseline
 	rollback  *geodataHashRollback
 	lastPrune time.Time
+	timezone  string
 }
 
 func NewGeodataExecutionMonitor() *GeodataExecutionMonitor {
@@ -105,11 +106,12 @@ func (m *GeodataExecutionMonitor) finish(status, details, runError string, at ti
 	m.persist(*m.pending)
 }
 
-func (m *GeodataExecutionMonitor) begin(at time.Time, assets []GeodataSource) {
+func (m *GeodataExecutionMonitor) begin(at time.Time, assets []GeodataSource, timezone string) {
 	if m.pending != nil && m.pending.Status == "running" {
 		m.finish("unconfirmed", "geoResultUnavailable", "", at)
 	}
-	m.pending = &TaskExecutionLog{ID: uuid.NewString(), XrayRestartRun: XrayRestartRun{StartedAt: at.UnixMilli(), Trigger: "scheduled", Status: "running"}, Task: "geodata"}
+	m.timezone = timezone
+	m.pending = &TaskExecutionLog{ID: uuid.NewString(), XrayRestartRun: XrayRestartRun{StartedAt: at.UnixMilli(), Trigger: "scheduled", Status: "running"}, Task: "geodata", Timezone: executionTimezone(timezone, at)}
 	for _, asset := range assets {
 		m.pending.Steps = append(m.pending.Steps, TaskExecutionStep{Target: asset.File, Status: "running"})
 	}
@@ -150,11 +152,13 @@ func (m *GeodataExecutionMonitor) observe(process geodataLogProcess, now time.Ti
 		return
 	}
 	var geo struct {
+		Cron   string          `json:"cron"`
 		Assets []GeodataSource `json:"assets"`
 	}
 	if cfg := process.GetConfig(); cfg != nil {
 		_ = json.Unmarshal(cfg.Geodata, &geo)
 	}
+	_, timezone := splitGeodataCron(geo.Cron)
 	for _, event := range process.GeodataEvents(m.sequence) {
 		if event.Sequence != m.sequence+1 {
 			if m.pending != nil && m.pending.Status == "running" {
@@ -170,9 +174,9 @@ func (m *GeodataExecutionMonitor) observe(process geodataLogProcess, now time.Ti
 			if m.ipOK && m.siteOK {
 				m.succeed(geo.Assets, false)
 			}
-			m.begin(event.At, geo.Assets)
+			m.begin(event.At, geo.Assets, timezone)
 		} else if (starts && (m.pending == nil || m.pending.Status != "running")) || (m.pending == nil && event.Kind == "failed") {
-			m.begin(event.At, geo.Assets)
+			m.begin(event.At, geo.Assets, timezone)
 		}
 		if m.pending == nil {
 			continue
@@ -206,14 +210,11 @@ func (m *GeodataExecutionMonitor) observe(process geodataLogProcess, now time.Ti
 }
 
 func (m *GeodataExecutionMonitor) succeed(assets []GeodataSource, captureHashes bool) {
-	details := "geoReloadOnly"
-	if len(assets) > 0 {
-		details = "geoFilesUpdated"
-	}
-	m.finish("success", details, "", m.completed)
 	if len(assets) == 0 {
+		m.finish("skipped", "geoNoDownloads", "", m.completed)
 		return
 	}
+	m.finish("success", "geoFilesUpdated", "", m.completed)
 	samples := make([]geodataHashSample, 0, len(assets))
 	for _, asset := range assets {
 		path := geodataExecutionAssetPath(asset.File, m.targets)
@@ -234,7 +235,7 @@ func (m *GeodataExecutionMonitor) succeed(assets []GeodataSource, captureHashes 
 			break
 		}
 	}
-	undo, err := saveGeodataHashes(m.pending, samples, m.completed.UnixMilli())
+	undo, err := saveGeodataHashes(m.pending, samples, m.completed.UnixMilli(), m.timezone)
 	if err != nil {
 		m.pending.HashComparisons = make([]GeodataHashComparison, 0, len(assets))
 		for _, asset := range assets {
