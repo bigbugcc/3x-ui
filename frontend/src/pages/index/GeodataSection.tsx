@@ -32,7 +32,7 @@ interface Props {
 const FILE_NAME_PATTERN = /^[A-Za-z0-9._-]+\.dat$/;
 
 export default function GeodataSection({ active, onBusy, onClose, saveDisabled }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [modal, modalContextHolder] = Modal.useModal();
   const [messageApi, messageContextHolder] = message.useMessage();
   const methods = useZodForm(GeodataUpdateScheduleSchema, {
@@ -81,6 +81,10 @@ export default function GeodataSection({ active, onBusy, onClose, saveDisabled }
         .map((row) => ({ url: row.url.trim(), file: row.file.trim() }))
         .filter((row) => row.url || row.file),
     };
+    if (plan.enabled && plan.assets.length === 0) {
+      messageApi.error(t('pages.xray.schedule.geoReloadOnlyHint'));
+      return;
+    }
     for (const asset of plan.assets) {
       try {
         const url = new URL(asset.url);
@@ -174,7 +178,11 @@ export default function GeodataSection({ active, onBusy, onClose, saveDisabled }
             </Form>
             <Typography.Paragraph>
               {t('pages.xray.schedule.nextSaved')}:{' '}
-              {formatScheduleTime(view?.nextRun ?? 0, view?.config.timezone ?? 'UTC')}
+              {formatScheduleTime(
+                view?.nextRun ?? 0,
+                view?.displayTimezone ?? view?.config.timezone ?? 'UTC',
+                i18n.language,
+              )}
             </Typography.Paragraph>
             <Space orientation="vertical" style={{ width: '100%' }} size={8}>
               {config.assets.length === 0 && (

@@ -56,6 +56,24 @@ describe('i18n keys', () => {
   const enUS = JSON.parse(readFileSync(join(translationDir, 'en-US.json'), 'utf8'));
   const enKeys = flattenKeys(enUS);
 
+  it('localizes schedule controls and preserves every schedule placeholder', () => {
+    const english = enUS.pages.xray.schedule as Record<string, string>;
+    const placeholders = (value: string) =>
+      [...value.matchAll(/\{([^{}]+)\}/g)].map((m) => m[1]).sort();
+    for (const file of readdirSync(translationDir).filter((name) => name.endsWith('.json'))) {
+      const schedule = JSON.parse(readFileSync(join(translationDir, file), 'utf8')).pages.xray
+        .schedule;
+      for (const [key, value] of Object.entries(english)) {
+        expect(placeholders(schedule[key]), `${file}: ${key}`).toEqual(placeholders(value));
+      }
+      if (file !== 'en-US.json') {
+        for (const key of ['frequency', 'daily', 'day0', 'geoSaveHint']) {
+          expect(schedule[key], `${file}: untranslated ${key}`).not.toBe(english[key]);
+        }
+      }
+    }
+  });
+
   const sources: string[] = [];
   collectSources(join(repoRoot, 'frontend', 'src'), ['.ts', '.tsx'], sources);
   collectSources(join(repoRoot, 'internal'), ['.go'], sources);

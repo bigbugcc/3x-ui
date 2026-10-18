@@ -128,7 +128,7 @@ func saveGeodataHashStateLocked(record TaskExecutionLog, baselines map[string]ge
 	})
 }
 
-func saveGeodataHashes(record *TaskExecutionLog, samples []geodataHashSample, confirmedAt int64) (map[string]*geodataHashBaseline, error) {
+func saveGeodataHashes(record *TaskExecutionLog, samples []geodataHashSample, confirmedAt int64, timezone string) (map[string]*geodataHashBaseline, error) {
 	taskHistoryMu.Lock()
 	defer taskHistoryMu.Unlock()
 	baselines, err := geodataHashBaselinesLocked()
@@ -141,6 +141,9 @@ func saveGeodataHashes(record *TaskExecutionLog, samples []geodataHashSample, co
 		key := geodataHashBaselinePath(sample.path)
 		previous, exists := baselines[key]
 		comparison := GeodataHashComparison{File: sample.file, CurrentHash: sample.hash, PreviousHash: previous.Hash, BaselineAt: previous.ConfirmedAt}
+		if previous.ConfirmedAt != 0 {
+			comparison.BaselineTimezone = executionTimezone(timezone, time.UnixMilli(previous.ConfirmedAt))
+		}
 		if sample.err != nil {
 			comparison.Status, comparison.Error = "unavailable", sample.err.Error()
 		} else {

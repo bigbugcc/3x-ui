@@ -181,6 +181,56 @@ func TestRestartScheduleRejectsOverlappingRunsAndShutdown(t *testing.T) {
 	}
 }
 
+func TestRestartExecutionKeepsStartTimezoneWhenPlanChangesDuringRun(t *testing.T) {
+	setupSettingTestDB(t)
+	s := newTestXrayScheduler(t)
+	plan := XrayRestartSchedule{Cron: "0 4 * * *", Timezone: "Asia/Shanghai"}
+	if err := s.Save(plan); err != nil {
+		t.Fatal(err)
+	}
+	s.restart = func() (bool, error) {
+		plan.Timezone = "UTC"
+		return true, s.Save(plan)
+	}
+	if _, err := s.RunNow(); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := s.settings.getSetting(taskHistoryKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stored.Value, `"timezone":"Asia/Shanghai"`) {
+		t.Fatalf("execution lost start timezone: %s", stored.Value)
+	}
+}
+
+func TestRestartScheduleLocalUsesServerTimezoneForNextRunAndExecution(t *testing.T) {
+	setupSettingTestDB(t)
+	local, err := time.LoadLocation("Asia/Kathmandu")
+	if err != nil {
+		t.Fatal(err)
+	}
+	previousLocal := time.Local
+	time.Local = local
+	t.Cleanup(func() { time.Local = previousLocal })
+	s := newTestXrayScheduler(t)
+	if err := s.Save(XrayRestartSchedule{Enabled: true, Cron: "0 4 * * *", Timezone: "Local"}); err != nil {
+		t.Fatal(err)
+	}
+	view, err := s.View()
+	if err != nil || view.DisplayTimezone != "+05:45" || time.UnixMilli(view.NextRun).In(local).Hour() != 4 {
+		t.Fatalf("server local plan: %+v, %v", view, err)
+	}
+	s.restart = func() (bool, error) { return true, nil }
+	if _, err := s.RunNow(); err != nil {
+		t.Fatal(err)
+	}
+	logs, err := GetTaskExecutionLogs()
+	if err != nil || len(logs.History) != 1 || logs.History[0].Timezone != "+05:45" || logs.History[0].TimezoneInferred {
+		t.Fatalf("server local record: %+v, %v", logs, err)
+	}
+}
+
 func TestScheduledRestartReportsInvalidConfigAndGeoDoesNotReviveStoppedCore(t *testing.T) {
 	setupSettingTestDB(t)
 	isManuallyStopped.Store(false)
@@ -193,8 +243,32 @@ func TestScheduledRestartReportsInvalidConfigAndGeoDoesNotReviveStoppedCore(t *t
 		t.Fatalf("scheduled restart = %v, %v", attempted, err)
 	}
 	isManuallyStopped.Store(true)
-	if attempted, err := (&XrayService{}).RestartXrayIfRunning(); attempted || err != nil {
+	if attempted, err := (&XrayService{}).RestartXrayIfRunning(context.Background()); attempted || err != nil {
 		t.Fatalf("geodata revived a stopped core: %v, %v", attempted, err)
+	}
+}
+
+func TestGeodataApplyCanceledWhileWaitingForXrayLock(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	lock.Lock()
+	done := make(chan error, 1)
+	go func() {
+		attempted, err := (&XrayService{}).RestartXrayIfRunning(ctx)
+		if attempted {
+			err = errors.New("canceled request attempted to restart Xray")
+		}
+		done <- err
+	}()
+	cancel()
+	lock.Unlock()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("canceled apply returned %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("canceled apply did not finish")
 	}
 }
 

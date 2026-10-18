@@ -1,6 +1,12 @@
-import { AutoComplete, Form, Input, InputNumber, Select, TimePicker, Typography } from 'antd';
-import dayjs from 'dayjs';
+import { AutoComplete, Form, Input, InputNumber, Select, Space, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
+
+function formatTimePart(
+  value: number | undefined,
+  { userTyping, input }: { userTyping: boolean; input: string },
+) {
+  return userTyping ? input : String(value ?? 0).padStart(2, '0');
+}
 
 interface Props {
   cron: string;
@@ -10,17 +16,22 @@ interface Props {
   onChange: (patch: { cron?: string; timezone?: string }) => void;
 }
 
-export function formatScheduleTime(timestamp: number, timezone: string) {
+export function formatScheduleTime(timestamp: number, timezone: string, language?: string) {
   if (!timestamp) return '—';
+  if (timezone === 'Local') return '—';
   try {
-    const formatted = new Intl.DateTimeFormat(undefined, {
+    const offset = /^([+-])(\d{2}):(\d{2})$/.exec(timezone);
+    const offsetMinutes = offset
+      ? (Number(offset[2]) * 60 + Number(offset[3])) * (offset[1] === '-' ? -1 : 1)
+      : 0;
+    const formatted = new Intl.DateTimeFormat(language, {
       dateStyle: 'medium',
       timeStyle: 'medium',
-      timeZone: timezone === 'Local' ? 'UTC' : timezone,
-    }).format(timestamp);
-    return timezone === 'Local' ? `${formatted} UTC` : formatted;
+      timeZone: offset ? 'UTC' : timezone,
+    }).format(timestamp + offsetMinutes * 60000);
+    return `${formatted} (${offset ? `UTC${timezone}` : timezone})`;
   } catch {
-    return new Date(timestamp).toLocaleString();
+    return `${new Date(timestamp).toISOString()} (UTC)`;
   }
 }
 
@@ -45,6 +56,25 @@ export default function ScheduleEditor({
 
   return (
     <>
+      <Form.Item
+        label={t('pages.xray.schedule.timezone')}
+        extra={t('pages.xray.schedule.timezoneHint')}
+      >
+        <AutoComplete
+          aria-label={t('pages.xray.schedule.timezone')}
+          value={timezone}
+          disabled={disabled}
+          options={[
+            'UTC',
+            'Asia/Shanghai',
+            'Asia/Tokyo',
+            'Europe/London',
+            'America/New_York',
+            'Local',
+          ].map((value) => ({ value }))}
+          onChange={(value) => onChange({ timezone: value })}
+        />
+      </Form.Item>
       <Form.Item label={t('pages.xray.schedule.frequency')}>
         <Select
           aria-label={t('pages.xray.schedule.frequency')}
@@ -67,20 +97,43 @@ export default function ScheduleEditor({
       </Form.Item>
       {(mode === 'daily' || mode === 'weekly') && (
         <Form.Item label={t('pages.xray.schedule.time')}>
-          <TimePicker
-            aria-label={t('pages.xray.schedule.time')}
-            format="HH:mm"
-            allowClear={false}
-            disabled={disabled}
-            value={dayjs().hour(hour).minute(minute).second(0)}
-            onChange={(value) => {
-              if (value) {
-                onChange({
-                  cron: `${value.minute()} ${value.hour()} * * ${mode === 'weekly' ? weekday : '*'}`,
-                });
-              }
-            }}
-          />
+          <Space style={{ direction: 'ltr' }}>
+            <InputNumber
+              aria-label={t('pages.xray.schedule.hour')}
+              inputMode="numeric"
+              min={0}
+              max={23}
+              precision={0}
+              formatter={formatTimePart}
+              style={{ width: 88 }}
+              disabled={disabled}
+              value={hour}
+              onChange={(value) => {
+                if (value != null && Number.isInteger(value)) {
+                  onChange({ cron: `${minute} ${value} * * ${mode === 'weekly' ? weekday : '*'}` });
+                }
+              }}
+              onPressEnter={(event) => event.preventDefault()}
+            />
+            <span aria-hidden>:</span>
+            <InputNumber
+              aria-label={t('pages.xray.schedule.minute')}
+              inputMode="numeric"
+              min={0}
+              max={59}
+              precision={0}
+              formatter={formatTimePart}
+              style={{ width: 88 }}
+              disabled={disabled}
+              value={minute}
+              onChange={(value) => {
+                if (value != null && Number.isInteger(value)) {
+                  onChange({ cron: `${value} ${hour} * * ${mode === 'weekly' ? weekday : '*'}` });
+                }
+              }}
+              onPressEnter={(event) => event.preventDefault()}
+            />
+          </Space>
         </Form.Item>
       )}
       {mode === 'weekly' && (
@@ -125,25 +178,6 @@ export default function ScheduleEditor({
           />
         </Form.Item>
       )}
-      <Form.Item
-        label={t('pages.xray.schedule.timezone')}
-        extra={t('pages.xray.schedule.timezoneHint')}
-      >
-        <AutoComplete
-          aria-label={t('pages.xray.schedule.timezone')}
-          value={timezone}
-          disabled={disabled}
-          options={[
-            'UTC',
-            'Asia/Shanghai',
-            'Asia/Tokyo',
-            'Europe/London',
-            'America/New_York',
-            'Local',
-          ].map((value) => ({ value }))}
-          onChange={(value) => onChange({ timezone: value })}
-        />
-      </Form.Item>
     </>
   );
 }

@@ -52,6 +52,41 @@ const VIEW = {
 afterEach(() => vi.restoreAllMocks());
 
 describe('GeodataSection', () => {
+  it('saves typed hours and minutes without selecting dropdown options', async () => {
+    vi.spyOn(HttpUtil, 'get').mockResolvedValue(new Msg(true, '', VIEW));
+    const post = vi.spyOn(HttpUtil, 'post').mockResolvedValue(new Msg(true, '', VIEW));
+    const user = userEvent.setup();
+    render(<GeodataSection active />);
+    const hour = await screen.findByRole('spinbutton', { name: 'Hour' });
+    const minute = screen.getByRole('spinbutton', { name: 'Minute' });
+    await user.clear(hour);
+    await user.type(hour, '9');
+    await user.clear(minute);
+    await user.type(minute, '5');
+    await user.click(screen.getByRole('button', { name: 'Save Geo plan' }));
+    await user.click(await screen.findByRole('button', { name: 'Confirm' }));
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+    expect(post.mock.calls[0]?.[1]).toEqual({ ...VIEW.config, cron: '5 9 * * *' });
+  });
+  it('rejects an enabled plan without downloads before submitting it', async () => {
+    vi.spyOn(HttpUtil, 'get').mockResolvedValue(
+      new Msg(true, '', { ...VIEW, config: { ...VIEW.config, assets: [] } }),
+    );
+    const post = vi.spyOn(HttpUtil, 'post');
+    const user = userEvent.setup();
+    render(<GeodataSection active />);
+    await user.click(await screen.findByRole('switch', { name: 'Enable scheduled Geo updates' }));
+    await user.click(screen.getByRole('button', { name: 'Save Geo plan' }));
+    await waitFor(() =>
+      expect(
+        screen.getAllByText(
+          'Add at least one download file or use the standard sources before enabling scheduled Geo updates.',
+        ),
+      ).toHaveLength(2),
+    );
+    expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull();
+    expect(post).not.toHaveBeenCalled();
+  });
   it('preserves edited assets when the server query is refreshed', async () => {
     vi.spyOn(HttpUtil, 'get')
       .mockResolvedValueOnce(new Msg(true, '', VIEW))

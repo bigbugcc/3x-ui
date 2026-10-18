@@ -1,13 +1,37 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 )
+
+const geodataScheduleSaveTimeout = 4 * time.Minute
+
+// GeodataScheduleTimeout must run before gzip wraps the response writer, so
+// ResponseController can reach the connection's write deadline.
+func GeodataScheduleTimeout(basePath string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.Request.Method != http.MethodPost || c.Request.URL.Path != basePath+"panel/api/xray/schedule/geodata" {
+			return
+		}
+		// Leave a minute after the operation budget to return errors or apply results.
+		if err := http.NewResponseController(c.Writer).SetWriteDeadline(time.Now().Add(geodataScheduleSaveTimeout + time.Minute)); err != nil {
+			jsonObj(c, nil, err)
+			c.Abort()
+			return
+		}
+		ctx, cancel := context.WithTimeout(c.Request.Context(), geodataScheduleSaveTimeout)
+		defer cancel()
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	}
+}
 
 type XrayScheduleController struct {
 	scheduler *service.XrayScheduler
@@ -107,13 +131,18 @@ func (a *XrayScheduleController) saveGeodata(c *gin.Context) {
 		pureJsonMsg(c, http.StatusBadRequest, false, err.Error())
 		return
 	}
-	if err := a.settings.SaveGeodataSchedule(cfg); err != nil {
+	if err := a.settings.SaveGeodataSchedule(c.Request.Context(), cfg); err != nil {
+		var scheduleErr *service.GeodataScheduleError
+		if errors.As(err, &scheduleErr) {
+			jsonMsg(c, I18nWeb(c, "pages.xray.schedule."+scheduleErr.Key, "file=="+scheduleErr.File), err)
+			return
+		}
 		jsonObj(c, nil, err)
 		return
 	}
 	// Application failures are distinct from saves; a stopped core loads its
 	// plan on next start, and a failed application must remain visible.
-	applied, applyErr := a.xray.RestartXrayIfRunning()
+	applied, applyErr := a.xray.RestartXrayIfRunning(c.Request.Context())
 	view, err := a.settings.GetGeodataSchedule()
 	if view != nil {
 		view.Applied = applied && applyErr == nil

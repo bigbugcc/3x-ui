@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -27,7 +28,7 @@ func TestTaskLogsMigrateLegacyPruneAndClearWithoutResurrecting(t *testing.T) {
 	if err != nil || len(view.History) != 1 || view.History[0].Task != "restart" || view.Settings.RetentionDays != 30 {
 		t.Fatalf("legacy migration = %+v, %v", view, err)
 	}
-	geo := TaskExecutionLog{ID: "geo-test", XrayRestartRun: XrayRestartRun{StartedAt: now.UnixMilli(), Trigger: "scheduled", Status: "failed", Error: "Geo download failed"}, Task: "geodata"}
+	geo := TaskExecutionLog{ID: "geo-test", XrayRestartRun: XrayRestartRun{StartedAt: now.UnixMilli(), Trigger: "scheduled", Status: "failed", Error: "Geo download failed"}, Task: "geodata", Timezone: "UTC"}
 	if err := appendTaskExecutionLog(geo); err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +121,7 @@ func TestTaskLogsPanelRestartFinalizesPendingGeoWithoutClaimingSuccess(t *testin
 
 func TestTaskLogsCompletionUpdatesRecordInsteadOfDuplicatingIt(t *testing.T) {
 	setupSettingTestDB(t)
-	record := TaskExecutionLog{ID: "geo-completion", XrayRestartRun: XrayRestartRun{StartedAt: time.Now().UnixMilli(), Trigger: "scheduled", Status: "running"}, Task: "geodata"}
+	record := TaskExecutionLog{ID: "geo-completion", XrayRestartRun: XrayRestartRun{StartedAt: time.Now().UnixMilli(), Trigger: "scheduled", Status: "running"}, Task: "geodata", Timezone: "UTC"}
 	if err := appendTaskExecutionLog(record); err != nil {
 		t.Fatal(err)
 	}
@@ -132,5 +133,35 @@ func TestTaskLogsCompletionUpdatesRecordInsteadOfDuplicatingIt(t *testing.T) {
 	view, err := GetTaskExecutionLogs()
 	if err != nil || len(view.History) != 1 || !reflect.DeepEqual(view.History[0], record) {
 		t.Fatalf("completion = %+v, %v", view, err)
+	}
+}
+
+func TestLegacyTaskLogsUseCurrentTimezoneWithoutPersistingAnInventedSnapshot(t *testing.T) {
+	setupSettingTestDB(t)
+	s := &SettingService{}
+	if err := s.saveSetting(restartScheduleKey, `{"timezone":"Asia/Shanghai"}`); err != nil {
+		t.Fatal(err)
+	}
+	if err := appendTaskExecutionLog(TaskExecutionLog{ID: "legacy-zone", Task: "restart", XrayRestartRun: XrayRestartRun{StartedAt: time.Now().UnixMilli(), Status: "success"}}); err != nil {
+		t.Fatal(err)
+	}
+	view, err := GetTaskExecutionLogs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(view.History)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var records []map[string]any
+	if err := json.Unmarshal(encoded, &records); err != nil {
+		t.Fatal(err)
+	}
+	if len(records) != 1 || records[0]["timezone"] != "Asia/Shanghai" || records[0]["timezoneInferred"] != true {
+		t.Fatalf("legacy timezone not identified: %s", encoded)
+	}
+	stored, err := s.getSetting(taskHistoryKey)
+	if err != nil || strings.Contains(stored.Value, `"timezone"`) {
+		t.Fatalf("invented historical timezone persisted: %s, %v", stored.Value, err)
 	}
 }

@@ -21,7 +21,7 @@ import { useXrayRestartSchedule } from '@/api/queries/useXraySchedule';
 import ScheduleEditor, { formatScheduleTime } from './ScheduleEditor';
 
 export default function RestartScheduleSection() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [modal, modalContext] = Modal.useModal();
   const [messageApi, messageContext] = message.useMessage();
   const methods = useZodForm(XrayRestartScheduleSchema, {
@@ -111,7 +111,11 @@ export default function RestartScheduleSection() {
               />
               <Typography.Paragraph>
                 {t('pages.xray.schedule.nextSaved')}:{' '}
-                {formatScheduleTime(view?.nextRun ?? 0, view?.config.timezone ?? 'UTC')}
+                {formatScheduleTime(
+                  view?.nextRun ?? 0,
+                  view?.displayTimezone ?? view?.config.timezone ?? 'UTC',
+                  i18n.language,
+                )}
               </Typography.Paragraph>
               <Typography.Paragraph type="secondary">
                 {t('pages.xray.schedule.manualStopHint')}

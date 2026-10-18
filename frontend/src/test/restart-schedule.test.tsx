@@ -20,6 +20,24 @@ afterEach(() => {
 });
 
 describe('restart schedule', () => {
+  it('saves typed hours and minutes without selecting dropdown options', async () => {
+    vi.spyOn(HttpUtil, 'get').mockResolvedValue(new Msg(true, '', VIEW));
+    const post = vi.spyOn(HttpUtil, 'post').mockResolvedValue(new Msg(true, '', VIEW));
+    const user = userEvent.setup();
+    render(<RestartScheduleSection />);
+    const hour = await screen.findByRole('spinbutton', { name: 'Hour' });
+    const minute = screen.getByRole('spinbutton', { name: 'Minute' });
+    await user.clear(hour);
+    await user.type(hour, '9');
+    await user.clear(minute);
+    await user.type(minute, '5');
+    await user.click(screen.getByRole('button', { name: 'Save restart plan' }));
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+    expect(post.mock.calls[0]?.[1]).toEqual({
+      ...VIEW.config,
+      cron: '5 9 * * 0',
+    });
+  });
   it('saves selected VPN outbound restarts and retains them in the editor', async () => {
     const config = { ...VIEW.config, restartOutbounds: ['warp'] };
     let saved = false;

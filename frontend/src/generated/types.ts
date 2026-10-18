@@ -605,6 +605,7 @@ export interface GeoFile {
 
 export interface GeodataHashComparison {
   baselineAt?: number;
+  baselineTimezone?: string;
   currentHash?: string;
   error?: string;
   file: string;
@@ -616,6 +617,7 @@ export interface GeodataScheduleView {
   applied: boolean;
   applyError: string;
   config: GeodataUpdateSchedule;
+  displayTimezone?: string;
   nextRun: number;
   outboundTags: string[];
   standardSources: GeodataSource[];
@@ -1097,6 +1099,8 @@ export interface TaskExecutionLog {
   status: string;
   steps?: TaskExecutionStep[];
   task: string;
+  timezone?: string;
+  timezoneInferred?: boolean;
   trigger: string;
 }
 
@@ -1167,6 +1171,7 @@ export interface XrayRestartSchedule {
 
 export interface XrayRestartScheduleView {
   config: XrayRestartSchedule;
+  displayTimezone?: string;
   history: XrayRestartRun[];
   nextRun: number;
   outboundTags: string[];

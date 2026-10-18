@@ -4,7 +4,6 @@ import { FormProvider } from 'react-hook-form';
 import {
   Alert,
   Button,
-  Collapse,
   Form,
   InputNumber,
   Modal,
@@ -19,9 +18,10 @@ import { TaskLogSettingsSchema } from '@/generated/zod';
 import type { TaskExecutionLog } from '@/generated/types';
 import { useTaskExecutionLogs } from '@/api/queries/useXraySchedule';
 import { formatScheduleTime } from './ScheduleEditor';
+import GeoExecutionDetails from './GeoExecutionDetails';
 
 export default function ExecutionLogsSection() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { query, save, clear } = useTaskExecutionLogs();
   const [modal, modalContext] = Modal.useModal();
   const [messageApi, messageContext] = message.useMessage();
@@ -95,16 +95,13 @@ export default function ExecutionLogsSection() {
               {t('pages.xray.schedule.clearLogs')}
             </Button>
             <Button onClick={() => void query.refetch()} disabled={busy} loading={query.isFetching}>
-              {t('check')}
+              {t('refresh')}
             </Button>
           </Space>
         </Form>
       </FormProvider>
       <Typography.Paragraph type="secondary">
         {t('pages.xray.schedule.logRetentionHint')}
-      </Typography.Paragraph>
-      <Typography.Paragraph type="secondary">
-        {t('pages.xray.schedule.hashHint')}
       </Typography.Paragraph>
       <Typography.Title level={5}>{t('pages.xray.schedule.history')}</Typography.Title>
       <Table<TaskExecutionLog>
@@ -133,7 +130,16 @@ export default function ExecutionLogsSection() {
           {
             title: t('pages.xray.schedule.startedAt'),
             dataIndex: 'startedAt',
-            render: (value: number) => formatScheduleTime(value, 'UTC'),
+            render: (value: number, record) => (
+              <Space orientation="vertical" size={0}>
+                <span>{formatScheduleTime(value, record.timezone ?? 'UTC', i18n.language)}</span>
+                {record.timezoneInferred && (
+                  <Typography.Text type="secondary">
+                    {t('pages.xray.schedule.logTimezoneInferred')}
+                  </Typography.Text>
+                )}
+              </Space>
+            ),
           },
           {
             title: t('pages.xray.schedule.trigger'),
@@ -169,88 +175,27 @@ export default function ExecutionLogsSection() {
           },
           {
             title: t('pages.xray.schedule.details'),
-            render: (_: unknown, record) => (
-              <Space orientation="vertical">
-                {record.status === 'skipped'
-                  ? t('pages.xray.schedule.skippedHint')
-                  : record.error ||
-                    (record.details
-                      ? t(`pages.xray.schedule.${record.details}`, { defaultValue: record.details })
-                      : '—')}
-                {record.steps?.map((step) => (
-                  <span key={step.target}>
-                    {step.target}: {t(`pages.xray.schedule.${step.status}`)}
-                    {step.error && ` · ${step.error}`}
-                  </span>
-                ))}
-                {record.hashComparisons && record.hashComparisons.length > 0 && (
-                  <Collapse
-                    size="small"
-                    items={record.hashComparisons.map((comparison) => ({
-                      key: comparison.file,
-                      label: (
-                        <Space wrap>
-                          <span>{comparison.file}</span>
-                          <Tag
-                            color={
-                              comparison.status === 'changed'
-                                ? 'blue'
-                                : comparison.status === 'unavailable'
-                                  ? 'warning'
-                                  : 'default'
-                            }
-                          >
-                            {t(
-                              `pages.xray.schedule.hash${comparison.status.charAt(0).toUpperCase()}${comparison.status.slice(1)}`,
-                            )}
-                          </Tag>
-                          {comparison.error && (
-                            <Typography.Text type="secondary">
-                              {t(`pages.xray.schedule.${comparison.error}`, {
-                                defaultValue: comparison.error,
-                              })}
-                            </Typography.Text>
-                          )}
-                        </Space>
-                      ),
-                      children: (
-                        <Space
-                          orientation="vertical"
-                          style={{ maxWidth: 400, overflowWrap: 'anywhere' }}
-                        >
-                          <Typography.Text type="secondary">
-                            {t('pages.xray.schedule.hashPrevious')}
-                          </Typography.Text>
-                          {comparison.previousHash ? (
-                            <Typography.Text code copyable>
-                              {comparison.previousHash}
-                            </Typography.Text>
-                          ) : (
-                            '—'
-                          )}
-                          <Typography.Text type="secondary">
-                            {t('pages.xray.schedule.hashCurrent')}
-                          </Typography.Text>
-                          {comparison.currentHash ? (
-                            <Typography.Text code copyable>
-                              {comparison.currentHash}
-                            </Typography.Text>
-                          ) : (
-                            '—'
-                          )}
-                          {!!comparison.baselineAt && (
-                            <Typography.Text type="secondary">
-                              {t('pages.xray.schedule.hashBaselineAt')}:{' '}
-                              {formatScheduleTime(comparison.baselineAt, 'UTC')}
-                            </Typography.Text>
-                          )}
-                        </Space>
-                      ),
-                    }))}
-                  />
-                )}
-              </Space>
-            ),
+            render: (_: unknown, record) =>
+              record.task === 'geodata' ? (
+                <GeoExecutionDetails record={record} />
+              ) : (
+                <Space orientation="vertical">
+                  {record.status === 'skipped'
+                    ? t('pages.xray.schedule.skippedHint')
+                    : record.error ||
+                      (record.details
+                        ? t(`pages.xray.schedule.${record.details}`, {
+                            defaultValue: record.details,
+                          })
+                        : '—')}
+                  {record.steps?.map((step) => (
+                    <span key={step.target}>
+                      {step.target}: {t(`pages.xray.schedule.${step.status}`)}
+                      {step.error && ` · ${step.error}`}
+                    </span>
+                  ))}
+                </Space>
+              ),
           },
         ]}
       />

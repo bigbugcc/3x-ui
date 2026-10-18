@@ -1,12 +1,15 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -19,6 +22,16 @@ import (
 
 const geodataScheduleDraftKey = "geodataScheduleDraft"
 
+// GeodataScheduleError keeps a localized explanation separate from technical evidence.
+type GeodataScheduleError struct {
+	Key  string
+	File string
+	Err  error
+}
+
+func (e *GeodataScheduleError) Error() string { return e.Err.Error() }
+func (e *GeodataScheduleError) Unwrap() error { return e.Err }
+
 type GeodataUpdateSchedule struct {
 	Enabled  bool            `json:"enabled"`
 	Cron     string          `json:"cron"`
@@ -30,6 +43,7 @@ type GeodataUpdateSchedule struct {
 type GeodataScheduleView struct {
 	Config          GeodataUpdateSchedule `json:"config"`
 	NextRun         int64                 `json:"nextRun"`
+	DisplayTimezone string                `json:"displayTimezone,omitempty"`
 	StandardSources []GeodataSource       `json:"standardSources"`
 	OutboundTags    []string              `json:"outboundTags"`
 	Applied         bool                  `json:"applied"`
@@ -90,6 +104,7 @@ func (s *XraySettingService) geodataScheduleViewLocked() (*GeodataScheduleView, 
 			view.ApplyError = err.Error()
 		}
 	}
+	view.DisplayTimezone = executionTimezone(plan.Timezone, time.UnixMilli(view.NextRun))
 	var outbounds []struct {
 		Tag      string `json:"tag"`
 		Protocol string `json:"protocol"`
@@ -128,35 +143,113 @@ func splitGeodataCron(spec string) (string, string) {
 
 func validateGeodataSchedule(plan GeodataUpdateSchedule) error {
 	if _, err := ParseMaintenanceSchedule(plan.Cron, plan.Timezone, false); err != nil {
-		return err
+		return &GeodataScheduleError{Key: "geoInvalidSchedule", Err: err}
+	}
+	if plan.Enabled && len(plan.Assets) == 0 {
+		return &GeodataScheduleError{Key: "geoReloadOnlyHint", Err: errors.New("at least one geodata download file is required before enabling updates")}
 	}
 	if len(plan.Assets) > 64 {
-		return errors.New("at most 64 geodata files may be scheduled")
+		return &GeodataScheduleError{Key: "geoTooManyFiles", Err: errors.New("at most 64 geodata files may be scheduled")}
 	}
 	seen := map[string]bool{}
 	files := &ServerService{}
 	for _, asset := range plan.Assets {
 		uri, err := url.ParseRequestURI(asset.URL)
 		if err != nil || uri.Scheme != "https" || uri.Host == "" || uri.User != nil || len(asset.URL) > 4096 {
-			return errors.New("geodata download URL must be HTTPS without embedded credentials")
+			return &GeodataScheduleError{Key: "geoInvalidUrl", File: asset.File, Err: errors.New("geodata download URL must be HTTPS without embedded credentials")}
 		}
 		if !files.IsValidGeofileName(asset.File) || len(asset.File) > 255 || seen[asset.File] {
-			return fmt.Errorf("invalid or duplicate geodata file: %q", asset.File)
+			return &GeodataScheduleError{Key: "geoInvalidFile", File: asset.File, Err: fmt.Errorf("invalid or duplicate geodata file: %q", asset.File)}
 		}
 		seen[asset.File] = true
 		if plan.Enabled {
-			info, err := os.Stat(filepath.Join(config.GetBinFolderPath(), asset.File))
+			info, err := os.Lstat(filepath.Join(config.GetBinFolderPath(), asset.File))
+			if errors.Is(err, os.ErrNotExist) {
+				entry, standard := geofileAllowlist[asset.File]
+				if standard && asset.URL == entry.latestURL() {
+					continue
+				}
+			}
 			if err != nil || !info.Mode().IsRegular() {
-				return fmt.Errorf("geodata file %q must already exist in the asset folder before enabling updates", asset.File)
+				return &GeodataScheduleError{Key: "geoFileRequired", File: asset.File, Err: fmt.Errorf("geodata file %q must already exist in the asset folder before enabling updates", asset.File)}
 			}
 		}
 	}
 	return nil
 }
 
+// Only preset URLs may bootstrap missing files. Stage and verify the complete
+// batch first; linking into place never replaces an existing administrator file.
+func initializeGeodataScheduleAssets(ctx context.Context, plan GeodataUpdateSchedule) error {
+	binFolder := config.GetBinFolderPath()
+	byRepo := map[string][]geofileEntry{}
+	for _, asset := range plan.Assets {
+		if _, err := os.Lstat(filepath.Join(binFolder, asset.File)); !errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		entry, ok := geofileAllowlist[asset.File]
+		if !ok || asset.URL != entry.latestURL() {
+			return &GeodataScheduleError{Key: "geoFileRequired", File: asset.File, Err: fmt.Errorf("missing custom geodata file %q", asset.File)}
+		}
+		byRepo[entry.Repo] = append(byRepo[entry.Repo], entry)
+	}
+	if len(byRepo) == 0 {
+		return nil
+	}
+	if err := os.MkdirAll(binFolder, 0755); err != nil {
+		return &GeodataScheduleError{Key: "geoInitFailed", Err: err}
+	}
+	stageDir, err := os.MkdirTemp(binFolder, "geofile-init-")
+	if err != nil {
+		return &GeodataScheduleError{Key: "geoInitFailed", Err: err}
+	}
+	defer os.RemoveAll(stageDir)
+	server := &ServerService{}
+	client := server.settingService.NewProxiedHTTPClient(60 * time.Second)
+	var staged []stagedGeofile
+	for _, repo := range slices.Sorted(maps.Keys(byRepo)) {
+		entries := byRepo[repo]
+		slices.SortFunc(entries, func(a, b geofileEntry) int { return strings.Compare(a.FileName, b.FileName) })
+		batch, err := server.stageGeofileRelease(ctx, client, entries, binFolder, stageDir)
+		if err != nil {
+			if ctx.Err() != nil {
+				err = ctx.Err()
+			}
+			return &GeodataScheduleError{Key: "geoInitFailed", Err: err}
+		}
+		staged = append(staged, batch...)
+	}
+	for _, file := range staged {
+		if err := ctx.Err(); err != nil {
+			return &GeodataScheduleError{Key: "geoInitFailed", Err: err}
+		}
+		if err := os.Link(file.stagePath, file.destPath); err != nil && !errors.Is(err, os.ErrExist) {
+			return &GeodataScheduleError{Key: "geoInitFailed", Err: err}
+		}
+	}
+	// Includes unexpected 304 responses and files removed/replaced during download.
+	for _, asset := range plan.Assets {
+		info, err := os.Lstat(filepath.Join(binFolder, asset.File))
+		if err != nil || !info.Mode().IsRegular() {
+			return &GeodataScheduleError{Key: "geoFileRequired", File: asset.File, Err: fmt.Errorf("geodata file %q is not a regular file after initialization", asset.File)}
+		}
+	}
+	return nil
+}
+
+func validateGeodataOutbound(outbound string, view *GeodataScheduleView) error {
+	if outbound != "" && !slices.Contains(view.OutboundTags, outbound) {
+		return &GeodataScheduleError{Key: "geoOutboundUnavailable", Err: errors.New("geodata download outbound is not available")}
+	}
+	return nil
+}
+
 // SaveGeodataSchedule atomically patches the latest template and its draft,
 // preserving unrelated changes made since the browser loaded its plan.
-func (s *XraySettingService) SaveGeodataSchedule(plan GeodataUpdateSchedule) error {
+func (s *XraySettingService) SaveGeodataSchedule(ctx context.Context, plan GeodataUpdateSchedule) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	plan.Cron = strings.TrimSpace(plan.Cron)
 	if plan.Assets == nil {
 		plan.Assets = []GeodataSource{}
@@ -164,8 +257,24 @@ func (s *XraySettingService) SaveGeodataSchedule(plan GeodataUpdateSchedule) err
 	if err := validateGeodataSchedule(plan); err != nil {
 		return err
 	}
+	if plan.Enabled {
+		view, err := s.GetGeodataSchedule()
+		if err != nil {
+			return err
+		}
+		if err := validateGeodataOutbound(plan.Outbound, view); err != nil {
+			return err
+		}
+		// Network I/O must not block unrelated template reads and writes.
+		if err := initializeGeodataScheduleAssets(ctx, plan); err != nil {
+			return err
+		}
+	}
 	xrayTemplateMu.Lock()
 	defer xrayTemplateMu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	template, err := s.GetXrayConfigTemplate()
 	if err != nil {
 		return err
@@ -183,12 +292,8 @@ func (s *XraySettingService) SaveGeodataSchedule(plan GeodataUpdateSchedule) err
 			if err != nil {
 				return err
 			}
-			found := false
-			for _, tag := range view.OutboundTags {
-				found = found || tag == plan.Outbound
-			}
-			if !found {
-				return errors.New("geodata download outbound is not available")
+			if err := validateGeodataOutbound(plan.Outbound, view); err != nil {
+				return err
 			}
 		}
 		geo := struct {
@@ -212,7 +317,7 @@ func (s *XraySettingService) SaveGeodataSchedule(plan GeodataUpdateSchedule) err
 	if err != nil {
 		return err
 	}
-	return database.GetDB().Transaction(func(tx *gorm.DB) error {
+	return database.GetDB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for key, value := range map[string]string{"xrayTemplateConfig": string(encoded), geodataScheduleDraftKey: string(draft)} {
 			var setting model.Setting
 			err := tx.Where("key = ?", key).First(&setting).Error
@@ -230,6 +335,6 @@ func (s *XraySettingService) SaveGeodataSchedule(plan GeodataUpdateSchedule) err
 				}
 			}
 		}
-		return nil
+		return ctx.Err()
 	})
 }

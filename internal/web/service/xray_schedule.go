@@ -46,11 +46,12 @@ type XrayRestartRun struct {
 }
 
 type XrayRestartScheduleView struct {
-	Config       XrayRestartSchedule `json:"config"`
-	NextRun      int64               `json:"nextRun"`
-	Running      bool                `json:"running"`
-	History      []XrayRestartRun    `json:"history"`
-	OutboundTags []string            `json:"outboundTags"`
+	Config          XrayRestartSchedule `json:"config"`
+	NextRun         int64               `json:"nextRun"`
+	DisplayTimezone string              `json:"displayTimezone,omitempty"`
+	Running         bool                `json:"running"`
+	History         []XrayRestartRun    `json:"history"`
+	OutboundTags    []string            `json:"outboundTags"`
 }
 
 // ParseMaintenanceSchedule isolates five-field plans from the seconds-enabled
@@ -198,6 +199,7 @@ func (s *XrayScheduler) View() (*XrayRestartScheduleView, error) {
 			view.NextRun = next.UnixMilli()
 		}
 	}
+	view.DisplayTimezone = executionTimezone(s.config.Timezone, time.UnixMilli(view.NextRun))
 	return view, nil
 }
 
@@ -221,6 +223,7 @@ func (s *XrayScheduler) run(trigger string, generation uint64) (*XrayRestartRun,
 	}
 	s.running = true
 	tags := append([]string(nil), s.config.RestartOutbounds...)
+	zone := s.config.Timezone
 	s.mu.Unlock()
 	defer func() {
 		s.mu.Lock()
@@ -240,7 +243,7 @@ func (s *XrayScheduler) run(trigger string, generation uint64) (*XrayRestartRun,
 	} else if !attempted {
 		record.Status = "skipped"
 	}
-	persistErr := appendTaskExecutionLog(TaskExecutionLog{XrayRestartRun: *record, Task: "restart"})
+	persistErr := appendTaskExecutionLog(TaskExecutionLog{XrayRestartRun: *record, Task: "restart", Timezone: executionTimezone(zone, start)})
 	if persistErr != nil {
 		persistErr = fmt.Errorf("restart result could not be saved: %w", persistErr)
 	}
